@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% block title %}Chess AI Path Engine — The Board Awaits{% endblock %}
+
+{% block content %}
+<div class="landing-page">
+  <canvas id="particleCanvas"></canvas>
+
+  <nav class="landing-nav">
+    <div class="nav-logo">
+      <span class="logo-icon">♟</span>
+      <span class="logo-text">CHESS AI ENGINE</span>
+    </div>
+    <div class="nav-badge">KL University · AI Lab</div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-icon-wrap">
+      <div class="hero-icon">♞</div>
+      <div class="hero-ring ring-1"></div>
+      <div class="hero-ring ring-2"></div>
+      <div class="hero-ring ring-3"></div>
+    </div>
+
+    <h1 class="hero-title">
+      <span class="title-line">AI BASED</span>
+      <span class="title-line accent">CHESS PATH</span>
+      <span class="title-line">FINDING ENGINE</span>
+    </h1>
+
+    <div class="title-divider">
+      <span class="divider-line"></span>
+      <span class="divider-dot"></span>
+      <span class="divider-line"></span>
+    </div>
+
+    <p class="hero-subtitle">INTELLIGENT ADVERSARIAL GRID NAVIGATION</p>
+
+    <p class="hero-desc">
+      An AI chess piece navigates a grid from start to goal using <strong>11 algorithms</strong> —
+      from classic search to adversarial game trees. Watch your piece move, not the scan.
+    </p>
+
+    <div class="algo-pills">
+      <span class="pill pill-green">BFS</span>
+      <span class="pill pill-blue">DFS</span>
+      <span class="pill pill-purple">UCS</span>
+      <span class="pill pill-cyan">A*</span>
+      <span class="pill pill-teal">Greedy</span>
+      <span class="pill pill-pink">CSP Backtrack</span>
+      <span class="pill pill-rose">Min Conflicts</span>
+      <span class="pill pill-red">Minimax 2P</span>
+      <span class="pill pill-orange">Minimax 3P</span>
+      <span class="pill pill-indigo">Alpha-Beta</span>
+      <span class="pill pill-sky">Hill Climb</span>
+    </div>
+
+    <a href="/game" class="cta-btn">
+      <span class="cta-icon">♟</span>
+      <span>BEGIN PATHFINDING</span>
+    </a>
+
+    <div class="feature-grid">
+      <div class="feat-card">
+        <div class="feat-icon">♟</div>
+        <div class="feat-title">Chess Pieces</div>
+        <div class="feat-desc">King, Queen, Rook, Bishop, Knight, Pawn — each with authentic movement rules</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🔍</div>
+        <div class="feat-title">Search Algorithms</div>
+        <div class="feat-desc">BFS, DFS, UCS, A*, Greedy — uninformed and informed search strategies</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🧩</div>
+        <div class="feat-title">CSP Methods</div>
+        <div class="feat-desc">Backtracking with MRV + Minimum Conflicts iterative repair</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⚔️</div>
+        <div class="feat-title">Adversarial AI</div>
+        <div class="feat-desc">2-Player & 3-Player Minimax with Alpha-Beta pruning</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-dots">
+    <span class="dot active"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('particleCanvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+const chessPieces = ['♔','♕','♖','♗','♘','♙'];
+class Particle {
+  constructor() { this.reset(true); }
+  reset(first) {
+    this.x = Math.random() * (W||800);
+    this.y = first ? Math.random() * (H||600) : -(Math.random()*60+20);
+    this.size = Math.random()*18 + 10;
+    this.dx = (Math.random()-0.5)*0.3;
+    this.dy = Math.random()*0.5+0.1;
+    this.alpha = Math.random()*0.12 + 0.04;
+    this.char = chessPieces[Math.floor(Math.random()*chessPieces.length)];
+    this.color = ['#3b82f6','#60a5fa','#93c5fd','#a78bfa','#34d399'][Math.floor(Math.random()*5)];
+  }
+  update() { this.x+=this.dx; this.y+=this.dy; if(this.y>H+40) this.reset(false); }
+  draw() {
+    ctx.save(); ctx.globalAlpha=this.alpha; ctx.fillStyle=this.color;
+    ctx.font=`${this.size}px serif`; ctx.fillText(this.char,this.x,this.y); ctx.restore();
+  }
+}
+for(let i=0;i<60;i++) particles.push(new Particle());
+(function animate(){ctx.clearRect(0,0,W,H); particles.forEach(p=>{p.update();p.draw();}); requestAnimationFrame(animate);})();
+</script>
+{% endblock %}

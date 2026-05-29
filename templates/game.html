@@ -1,0 +1,614 @@
+{% extends 'base.html' %}
+{% block title %}Chess AI Engine — Game Board{% endblock %}
+
+{% block content %}
+<div class="game-page">
+
+  <!-- NAV -->
+  <header class="game-header">
+    <a href="/" class="game-logo"><span>♟</span> CHESS AI ENGINE</a>
+    <div class="game-header-title">GAME BOARD</div>
+    <a href="/results" class="results-btn">📊 Results</a>
+  </header>
+
+  <div class="game-layout">
+
+    <!-- ── LEFT PANEL ── -->
+    <aside class="left-panel">
+
+      <section class="panel-section">
+        <h3 class="panel-heading">BOARD SETTINGS</h3>
+        <label class="ctrl-label">BOARD SIZE (N)</label>
+        <div class="number-ctrl">
+          <button class="num-btn" onclick="changeN(-1)">−</button>
+          <span id="gridSizeDisplay">8</span>
+          <button class="num-btn" onclick="changeN(1)">+</button>
+        </div>
+        <label class="ctrl-label" style="margin-top:14px;">OBSTACLES (%)</label>
+        <div class="number-ctrl">
+          <button class="num-btn" onclick="changeObs(-5)">−</button>
+          <span id="obstacleDisplay">20</span>
+          <button class="num-btn" onclick="changeObs(5)">+</button>
+        </div>
+        <label class="ctrl-label" style="margin-top:14px;">MOVE SPEED</label>
+        <select id="speedSelect" class="styled-select">
+          <option value="700">Slow</option>
+          <option value="350" selected>Medium</option>
+          <option value="120">Fast</option>
+          <option value="30">Turbo</option>
+        </select>
+      </section>
+
+      <!-- CHESS PIECE SELECTOR -->
+      <section class="panel-section">
+        <h3 class="panel-heading">CHESS PIECE</h3>
+        <div class="piece-grid" id="pieceGrid"></div>
+        <div class="piece-info" id="pieceInfo">King moves 1 step in any direction.</div>
+      </section>
+
+      <!-- GOAL PIECE SELECTOR -->
+      <section class="panel-section">
+        <h3 class="panel-heading">GOAL PIECE <span style="font-size:.6rem;color:var(--t3)">(to capture)</span></h3>
+        <div class="piece-grid" id="goalPieceGrid"></div>
+        <div class="piece-info" id="goalPieceInfo">Queen — the piece your start piece will capture.</div>
+      </section>
+
+      <!-- PLACEMENT MODE -->
+      <section class="panel-section">
+        <h3 class="panel-heading">PLACEMENT MODE</h3>
+        <div class="mode-btns">
+          <button class="mode-btn active" id="modeStart" onclick="setMode('start')">♟ Start</button>
+          <button class="mode-btn" id="modeGoal"  onclick="setMode('goal')">⚑ Goal</button>
+          <button class="mode-btn" id="modeWall"  onclick="setMode('wall')">▪ Wall</button>
+          <button class="mode-btn" id="modeErase" onclick="setMode('erase')">✕ Erase</button>
+        </div>
+      </section>
+
+      <!-- ALGORITHM LIST -->
+      <section class="panel-section">
+        <h3 class="panel-heading">ALGORITHM</h3>
+        <div id="algoList" class="algo-list"></div>
+      </section>
+
+      <div class="status-box" id="statusBox">Place ♟ Start and ⚑ Goal, then press <strong>START</strong>.</div>
+    </aside>
+
+    <!-- ── CENTER: CHESS BOARD ── -->
+    <main class="center-panel">
+
+      <div class="turn-bar">
+        <div class="turn-label">MODE</div>
+        <div id="modeDisplay" class="turn-display">Placing Start</div>
+        <div id="statusLabel" class="status-label">Set up your board to begin</div>
+      </div>
+
+      <!-- Live Cost Panel -->
+      <div class="cost-bar">
+        <div class="cost-item">
+          <span class="cost-label">g(n)</span>
+          <span class="cost-val" id="liveG">0</span>
+          <span class="cost-sub">Steps taken</span>
+        </div>
+        <div class="cost-sep">+</div>
+        <div class="cost-item">
+          <span class="cost-label">h(n)</span>
+          <span class="cost-val" id="liveH">0</span>
+          <span class="cost-sub">Heuristic</span>
+        </div>
+        <div class="cost-sep">=</div>
+        <div class="cost-item accent-cost">
+          <span class="cost-label">f(n)</span>
+          <span class="cost-val" id="liveF">0</span>
+          <span class="cost-sub">Total cost</span>
+        </div>
+        <div class="cost-progress-wrap">
+          <div class="cost-progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <!-- Column labels -->
+        <div class="board-col-labels" id="colLabels"></div>
+        <div class="board-row-wrap">
+          <!-- Row labels -->
+          <div class="board-row-labels" id="rowLabels"></div>
+          <!-- Chess board grid -->
+          <div id="chessBoard" class="chess-board"></div>
+        </div>
+      </div>
+
+      <div class="grid-controls">
+        <button class="ctrl-btn btn-start" onclick="startSolve()">▶ START</button>
+        <button class="ctrl-btn btn-stop"  onclick="stopSolve()">■ STOP</button>
+        <button class="ctrl-btn btn-reset" onclick="resetBoard()">↺ RESET</button>
+        <button class="ctrl-btn btn-rand"  onclick="randomWalls()">⚄ RANDOM</button>
+      </div>
+
+      <div class="move-history-box">
+        <div class="history-label">MOVE LOG</div>
+        <div id="pathLog" class="path-log">No algorithm run yet…</div>
+      </div>
+    </main>
+
+    <!-- ── RIGHT PANEL ── -->
+    <aside class="right-panel">
+
+      <section class="panel-section">
+        <h3 class="panel-heading">STATISTICS</h3>
+        <div class="vars-grid">
+          <div class="var-card"><div class="var-val" id="varBoard">8×8</div><div class="var-label">BOARD</div></div>
+          <div class="var-card"><div class="var-val" id="varNodes">0</div><div class="var-label">EXPLORED</div></div>
+          <div class="var-card"><div class="var-val" id="varPathLen">0</div><div class="var-label">PATH LEN</div></div>
+          <div class="var-card"><div class="var-val" id="varCost">0</div><div class="var-label">COST</div></div>
+          <div class="var-card"><div class="var-val" id="varTime">0ms</div><div class="var-label">TIME</div></div>
+          <div class="var-card"><div class="var-val" id="varFound">—</div><div class="var-label">STATUS</div></div>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h3 class="panel-heading">ALGORITHM GUIDE</h3>
+        <div class="algo-legend" id="algoLegend"></div>
+      </section>
+
+      <section class="panel-section">
+        <h3 class="panel-heading">DESCRIPTION</h3>
+        <div id="algoDesc" class="algo-path-display">Select an algorithm and press START.</div>
+      </section>
+
+      <section class="panel-section">
+        <h3 class="panel-heading">BOARD LEGEND</h3>
+        <div class="cell-legend">
+          <div class="cl-item"><div class="cl-cell cl-start"></div><span>Start (your piece)</span></div>
+          <div class="cl-item"><div class="cl-cell cl-goal"></div><span>Goal (enemy piece — capture it!)</span></div>
+          <div class="cl-item"><div class="cl-cell cl-wall"></div><span>Wall / Obstacle</span></div>
+          <div class="cl-item"><div class="cl-cell cl-trail"></div><span>Path trail</span></div>
+          <div class="cl-item"><div class="cl-cell cl-piece"></div><span>Current piece</span></div>
+          <div class="cl-item"><div class="cl-cell cl-capture"></div><span>Capture! ⚔</span></div>
+        </div>
+      </section>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════
+const PIECES = {
+  king:   { sym:'♔', name:'King',   desc:'Moves 1 step in any of 8 directions.' },
+  queen:  { sym:'♕', name:'Queen',  desc:'Slides any distance in 8 directions.' },
+  rook:   { sym:'♖', name:'Rook',   desc:'Slides any distance horizontally or vertically.' },
+  bishop: { sym:'♗', name:'Bishop', desc:'Slides any distance diagonally.' },
+  knight: { sym:'♘', name:'Knight', desc:'L-shaped jumps: 2+1 squares, ignores obstacles.' },
+  pawn:   { sym:'♙', name:'Pawn',   desc:'Moves 1 step orthogonally (simplified for pathfinding).' },
+};
+
+const ALGOS = [
+  { id:'bfs',          name:'BFS',             cat:'Uninformed', color:'#4ade80' },
+  { id:'dfs',          name:'DFS',             cat:'Uninformed', color:'#60a5fa' },
+  { id:'ucs',          name:'UCS',             cat:'Uninformed', color:'#a78bfa' },
+  { id:'astar',        name:'A*',              cat:'Informed',   color:'#34d399' },
+  { id:'greedy',       name:'Greedy',          cat:'Informed',   color:'#22d3ee' },
+  { id:'csp',          name:'CSP Backtrack',   cat:'CSP',        color:'#f472b6' },
+  { id:'minconflicts', name:'Min Conflicts',   cat:'CSP',        color:'#e879f9' },
+  { id:'minimax2',     name:'Minimax 2P',      cat:'Adversarial',color:'#f87171' },
+  { id:'minimax3',     name:'Minimax 3P',      cat:'Adversarial',color:'#fb923c' },
+  { id:'alphabeta',    name:'Alpha-Beta',      cat:'Adversarial',color:'#fbbf24' },
+  { id:'hillclimbing', name:'Hill Climbing',   cat:'Local',      color:'#94a3b8' },
+];
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let N = 8, obsPct = 20;
+let grid = [], startPos = null, goalPos = null;
+let mode = 'start', selectedAlgo = 'bfs', selectedPiece = 'king', selectedGoalPiece = 'queen';
+let isRunning = false, animTid = null, isDown = false;
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+function init() {
+  buildPieceGrid();
+  buildGoalPieceGrid();
+  buildAlgoList();
+  buildAlgoLegend();
+  buildBoard();
+}
+
+function buildPieceGrid() {
+  const el = document.getElementById('pieceGrid');
+  el.innerHTML = '';
+  Object.entries(PIECES).forEach(([id, p]) => {
+    const btn = document.createElement('button');
+    btn.className = 'piece-btn' + (id === selectedPiece ? ' active' : '');
+    btn.id = 'piece_' + id;
+    btn.innerHTML = `<span class="piece-sym">${p.sym}</span><span class="piece-name">${p.name}</span>`;
+    btn.onclick = () => selectPiece(id);
+    el.appendChild(btn);
+  });
+}
+
+function buildGoalPieceGrid() {
+  const el = document.getElementById('goalPieceGrid');
+  el.innerHTML = '';
+  // Use black chess piece symbols for goal
+  const blackSyms = {king:'♚',queen:'♛',rook:'♜',bishop:'♝',knight:'♞',pawn:'♟'};
+  Object.entries(PIECES).forEach(([id, p]) => {
+    const btn = document.createElement('button');
+    btn.className = 'piece-btn' + (id === selectedGoalPiece ? ' active' : '');
+    btn.id = 'goalpiece_' + id;
+    btn.style.borderColor = id === selectedGoalPiece ? '#f87171' : '';
+    btn.innerHTML = `<span class="piece-sym" style="color:#f87171">${blackSyms[id]}</span><span class="piece-name">${p.name}</span>`;
+    btn.onclick = () => selectGoalPiece(id);
+    el.appendChild(btn);
+  });
+}
+
+function selectPiece(id) {
+  selectedPiece = id;
+  document.querySelectorAll('.piece-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('piece_' + id).classList.add('active');
+  document.getElementById('pieceInfo').textContent = PIECES[id].desc;
+  // update start cell icon
+  if (startPos) {
+    const cell = document.getElementById(`c-${startPos[0]}-${startPos[1]}`);
+    if (cell) { cell.querySelector('.cell-inner').textContent = PIECES[id].sym; }
+  }
+}
+
+function selectGoalPiece(id) {
+  selectedGoalPiece = id;
+  const blackSyms = {king:'♚',queen:'♛',rook:'♜',bishop:'♝',knight:'♞',pawn:'♟'};
+  document.querySelectorAll('#goalPieceGrid .piece-btn').forEach(b => {
+    b.classList.remove('active');
+    b.style.borderColor = '';
+  });
+  const btn = document.getElementById('goalpiece_' + id);
+  btn.classList.add('active');
+  btn.style.borderColor = '#f87171';
+  document.getElementById('goalPieceInfo').textContent =
+    PIECES[id].name + ' — the piece your start piece will capture.';
+  // update goal cell icon
+  if (goalPos) {
+    const cell = document.getElementById(`c-${goalPos[0]}-${goalPos[1]}`);
+    if (cell) { cell.querySelector('.cell-inner').textContent = blackSyms[id]; }
+  }
+}
+
+function buildAlgoList() {
+  const el = document.getElementById('algoList');
+  el.innerHTML = '';
+  ALGOS.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'algo-btn' + (a.id === selectedAlgo ? ' active' : '');
+    btn.id = 'algo_' + a.id;
+    btn.style.setProperty('--ac', a.color);
+    btn.innerHTML = `<span class="algo-dot" style="background:${a.color}"></span>
+                     <span class="algo-btn-name">${a.name}</span>
+                     <span class="algo-cat">${a.cat}</span>`;
+    btn.onclick = () => selectAlgo(a.id);
+    el.appendChild(btn);
+  });
+}
+
+function selectAlgo(id) {
+  selectedAlgo = id;
+  document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('algo_' + id).classList.add('active');
+}
+
+function buildAlgoLegend() {
+  const el = document.getElementById('algoLegend');
+  const cats = {};
+  ALGOS.forEach(a => { (cats[a.cat] = cats[a.cat]||[]).push(a); });
+  el.innerHTML = Object.entries(cats).map(([cat, list]) =>
+    `<div class="legend-cat">${cat}</div>` +
+    list.map(a => `<div class="legend-item">
+      <span class="legend-dot" style="background:${a.color}"></span>
+      <strong>${a.name}</strong>
+    </div>`).join('')
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  BOARD
+// ═══════════════════════════════════════════════════
+function buildBoard() {
+  grid = Array.from({length:N}, ()=>Array(N).fill(0));
+  startPos = null; goalPos = null;
+  renderBoard();
+  updateStats();
+}
+
+function renderBoard() {
+  const board  = document.getElementById('chessBoard');
+  const cols   = document.getElementById('colLabels');
+  const rows   = document.getElementById('rowLabels');
+  board.innerHTML = cols.innerHTML = rows.innerHTML = '';
+
+  const sz = Math.min(Math.floor(520/N), 58);
+  board.style.gridTemplateColumns = `repeat(${N},${sz}px)`;
+  board.style.gridTemplateRows    = `repeat(${N},${sz}px)`;
+
+  // Labels
+  const colLetters = 'abcdefghijklmnopqrst';
+  cols.style.gridTemplateColumns = `repeat(${N},${sz}px)`;
+  for(let c=0;c<N;c++){
+    const l=document.createElement('div'); l.className='board-label';
+    l.textContent=colLetters[c]; cols.appendChild(l);
+  }
+  rows.style.gridTemplateRows = `repeat(${N},${sz}px)`;
+  for(let r=0;r<N;r++){
+    const l=document.createElement('div'); l.className='board-label';
+    l.textContent=N-r; rows.appendChild(l);
+  }
+
+  // Cells
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) {
+    const cell = document.createElement('div');
+    cell.id = `c-${r}-${c}`;
+    cell.className = 'chess-cell' + ((r+c)%2===0 ? ' light' : ' dark');
+    cell.style.width = cell.style.height = sz+'px';
+    const inner = document.createElement('div');
+    inner.className = 'cell-inner';
+    inner.style.fontSize = Math.max(sz*0.55,14)+'px';
+    cell.appendChild(inner);
+    setCell(cell, r, c);
+    cell.addEventListener('mousedown', ()=>{ isDown=true; click(r,c); });
+    cell.addEventListener('mouseenter',()=>{ if(isDown) click(r,c); });
+    board.appendChild(cell);
+  }
+  document.addEventListener('mouseup',()=>{ isDown=false; });
+}
+
+function setCell(cell, r, c) {
+  const blackSyms = {king:'♚',queen:'♛',rook:'♜',bishop:'♝',knight:'♞',pawn:'♟'};
+  const inner = cell.querySelector('.cell-inner');
+  cell.classList.remove('start-cell','goal-cell','wall-cell','path-trail','piece-on','piece-arrive');
+  inner.textContent = '';
+
+  if(startPos && startPos[0]===r && startPos[1]===c) {
+    cell.classList.add('start-cell');
+    inner.textContent = PIECES[selectedPiece].sym;
+  } else if(goalPos && goalPos[0]===r && goalPos[1]===c) {
+    cell.classList.add('goal-cell');
+    inner.textContent = blackSyms[selectedGoalPiece];
+    inner.style.color = '#f87171';
+  } else if(grid[r][c]===1) {
+    cell.classList.add('wall-cell');
+    inner.textContent = '▪';
+  }
+}
+
+function refreshCell(r, c) {
+  const cell = document.getElementById(`c-${r}-${c}`);
+  if(cell) setCell(cell,r,c);
+}
+
+function isSpecial(r, c) {
+  return (startPos&&startPos[0]===r&&startPos[1]===c)||
+         (goalPos &&goalPos[0] ===r&&goalPos[1] ===c);
+}
+
+// ═══════════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════════
+function click(r, c) {
+  if(isRunning) return;
+  clearViz();
+  if(mode==='start') {
+    const old=startPos; startPos=[r,c];
+    if(grid[r][c]===1) grid[r][c]=0;
+    if(old) refreshCell(old[0],old[1]);
+    refreshCell(r,c);
+  } else if(mode==='goal') {
+    const old=goalPos; goalPos=[r,c];
+    if(grid[r][c]===1) grid[r][c]=0;
+    if(old) refreshCell(old[0],old[1]);
+    refreshCell(r,c);
+  } else if(mode==='wall') {
+    if(isSpecial(r,c)) return;
+    grid[r][c]=1; refreshCell(r,c);
+  } else if(mode==='erase') {
+    if(isSpecial(r,c)) return;
+    grid[r][c]=0; refreshCell(r,c);
+  }
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode'+m.charAt(0).toUpperCase()+m.slice(1)).classList.add('active');
+  document.getElementById('modeDisplay').textContent = 'Placing '+m.charAt(0).toUpperCase()+m.slice(1);
+}
+
+function changeN(d) { N=Math.max(5,Math.min(20,N+d)); document.getElementById('gridSizeDisplay').textContent=N; buildBoard(); }
+function changeObs(d) { obsPct=Math.max(0,Math.min(60,obsPct+d)); document.getElementById('obstacleDisplay').textContent=obsPct; }
+
+function resetBoard() { stopSolve(); buildBoard(); clearDesc(); }
+
+function randomWalls() {
+  if(isRunning) return;
+  clearViz();
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) {
+    if(!isSpecial(r,c)) grid[r][c] = Math.random()*100<obsPct?1:0;
+  }
+  renderBoard();
+}
+
+// ═══════════════════════════════════════════════════
+//  SOLVE & ANIMATE
+// ═══════════════════════════════════════════════════
+async function startSolve() {
+  if(!startPos||!goalPos) { setStatus('⚠ Place ♟ Start and ⚑ Goal first!','warn'); return; }
+  if(isRunning) return;
+  isRunning = true;
+  clearViz();
+  setStatus('⚙ Computing path with '+ALGOS.find(a=>a.id===selectedAlgo)?.name+'…','running');
+
+  try {
+    const resp = await fetch('/api/solve', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({grid, start:startPos, goal:goalPos,
+                            algorithm:selectedAlgo, piece_type:selectedPiece})
+    });
+    const result = await resp.json();
+    if(result.error) { setStatus('❌ '+result.error,'error'); isRunning=false; return; }
+
+    updateStatsFromResult(result);
+
+    if(result.found && result.path.length > 0) {
+      await movePiece(result.path, result);
+      setStatus(`✅ Done! Cost: ${result.cost} | Steps: ${result.path_length}`, 'success');
+    } else {
+      setStatus('❌ No path found — walls block every route!','error');
+    }
+    document.getElementById('algoDesc').textContent = result.description;
+    logPath(result);
+  } catch(e) {
+    setStatus('❌ Connection error: '+e.message,'error');
+  }
+  isRunning = false;
+}
+
+function stopSolve() {
+  isRunning = false;
+  if(animTid){ clearTimeout(animTid); animTid=null; }
+  setStatus('⏹ Stopped.','');
+}
+
+function sleep(ms) { return new Promise(r=>{ animTid=setTimeout(r,ms); }); }
+
+async function movePiece(path, result) {
+  const speed = parseInt(document.getElementById('speedSelect').value);
+  const goalR = goalPos[0], goalC = goalPos[1];
+
+  for(let i=0; i<path.length; i++) {
+    if(!isRunning) break;
+    const [r,c] = path[i];
+
+    // Clear previous piece position (show trail)
+    if(i>0) {
+      const [pr,pc]=path[i-1];
+      const prevCell=document.getElementById(`c-${pr}-${pc}`);
+      if(prevCell && !isSpecial(pr,pc)) {
+        prevCell.classList.remove('piece-on','piece-arrive','start-cell');
+        prevCell.classList.add('path-trail');
+        prevCell.querySelector('.cell-inner').textContent = `${i}`;
+      }
+    }
+
+    // Place piece on current cell
+    const cell = document.getElementById(`c-${r}-${c}`);
+    if(cell) {
+      cell.classList.remove('start-cell','goal-cell','path-trail');
+      cell.classList.add('piece-on');
+      void cell.offsetWidth; // reflow for animation
+      cell.classList.add('piece-arrive');
+      cell.querySelector('.cell-inner').textContent = PIECES[selectedPiece].sym;
+    }
+
+    // Live cost update
+    const g = i;
+    const h = Math.abs(r-goalR)+Math.abs(c-goalC);
+    updateLiveCost(g, h, result.path_length);
+
+    if(i < path.length-1) await sleep(speed);
+  }
+
+  // Capture animation at goal
+  if(result.found) {
+    const [gr,gc]=path[path.length-1];
+    const goalCell=document.getElementById(`c-${gr}-${gc}`);
+    if(goalCell) {
+      goalCell.classList.add('goal-reached','capture-flash');
+      goalCell.querySelector('.cell-inner').textContent='⚔';
+      // After flash, show trophy
+      setTimeout(()=>{
+        if(goalCell.querySelector('.cell-inner'))
+          goalCell.querySelector('.cell-inner').textContent='🏆';
+      }, 600);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  VIZ UTILITIES
+// ═══════════════════════════════════════════════════
+function clearViz() {
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) {
+    if(!isSpecial(r,c)) {
+      const cell=document.getElementById(`c-${r}-${c}`);
+      if(cell) {
+        cell.classList.remove('path-trail','piece-on','piece-arrive','goal-reached');
+        setCell(cell,r,c);
+      }
+    }
+  }
+  resetLiveCost();
+}
+
+function updateLiveCost(g, h, total) {
+  const f = g + h;
+  document.getElementById('liveG').textContent = g;
+  document.getElementById('liveH').textContent = h;
+  document.getElementById('liveF').textContent = f;
+  const pct = total>0 ? Math.round((g/total)*100) : 0;
+  document.getElementById('progressBar').style.width = pct+'%';
+}
+
+function resetLiveCost() {
+  ['liveG','liveH','liveF'].forEach(id=>document.getElementById(id).textContent='0');
+  document.getElementById('progressBar').style.width='0%';
+}
+
+// ═══════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════
+function setStatus(msg, type) {
+  const el=document.getElementById('statusLabel');
+  el.textContent=msg; el.className='status-label status-'+type;
+}
+
+function updateStats() {
+  document.getElementById('varBoard').textContent=N+'×'+N;
+  document.getElementById('varNodes').textContent='0';
+  document.getElementById('varPathLen').textContent='0';
+  document.getElementById('varCost').textContent='0';
+  document.getElementById('varTime').textContent='0ms';
+  document.getElementById('varFound').textContent='—';
+}
+
+function updateStatsFromResult(r) {
+  document.getElementById('varBoard').textContent=N+'×'+N;
+  document.getElementById('varNodes').textContent=r.nodes_explored;
+  document.getElementById('varPathLen').textContent=r.path_length;
+  document.getElementById('varCost').textContent=r.cost;
+  document.getElementById('varTime').textContent=r.time_ms+'ms';
+  document.getElementById('varFound').textContent=r.found?'✅ Yes':'❌ No';
+}
+
+function logPath(result) {
+  const algo=ALGOS.find(a=>a.id===selectedAlgo);
+  const c=algo?algo.color:'#60a5fa';
+  let html=`<span style="color:${c};font-weight:700">[${result.algorithm}]</span> `;
+  if(result.path&&result.path.length>0){
+    html+=result.path.map(([r,c])=>`(${r},${c})`).join(' → ');
+  } else html+='No path found.';
+  document.getElementById('pathLog').innerHTML=html;
+}
+
+function clearDesc() {
+  document.getElementById('algoDesc').textContent='Select an algorithm and press START.';
+  document.getElementById('pathLog').textContent='No algorithm run yet…';
+  updateStats();
+}
+
+// ═══════════════════════════════════════════════════
+//  BOOTSTRAP
+// ═══════════════════════════════════════════════════
+init();
+</script>
+{% endblock %}

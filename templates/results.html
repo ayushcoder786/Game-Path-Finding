@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% block title %}Chess AI Engine — Results{% endblock %}
+
+{% block content %}
+<div class="results-page">
+  <canvas id="confettiCanvas"></canvas>
+
+  <nav class="results-nav">
+    <div class="nav-logo"><span>♟</span> CHESS AI ENGINE</div>
+    <div class="results-heading">RESULTS</div>
+    <div></div>
+  </nav>
+
+  {% if result %}
+  <div class="results-content">
+    <div class="result-banner">
+      {% if result.found %}
+        <div class="banner-icon">🏆</div>
+        <h1 class="banner-title win">PATH FOUND!</h1>
+        <div class="banner-sub">{{ result.algorithm }} successfully navigated to the goal</div>
+      {% else %}
+        <div class="banner-icon">♟</div>
+        <h1 class="banner-title">NO PATH FOUND</h1>
+        <div class="banner-sub">{{ result.algorithm }} — all routes are blocked</div>
+      {% endif %}
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="result-stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">⚙</div>
+        <div class="stat-val">{{ result.algorithm }}</div>
+        <div class="stat-lbl">Algorithm</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🔍</div>
+        <div class="stat-val">{{ result.nodes_explored }}</div>
+        <div class="stat-lbl">Nodes Explored</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">♟</div>
+        <div class="stat-val">{{ result.path_length }}</div>
+        <div class="stat-lbl">Path Length</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📐</div>
+        <div class="stat-val">{{ result.g_cost }}</div>
+        <div class="stat-lbl">g(n) — Actual Cost</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-val">{{ result.h_cost }}</div>
+        <div class="stat-lbl">h(n) — Heuristic</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-val">{{ result.f_cost }}</div>
+        <div class="stat-lbl">f(n) = g + h</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⏱</div>
+        <div class="stat-val">{{ result.time_ms }}ms</div>
+        <div class="stat-lbl">Compute Time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">{% if result.found %}✅{% else %}❌{% endif %}</div>
+        <div class="stat-val">{% if result.found %}Success{% else %}Failed{% endif %}</div>
+        <div class="stat-lbl">Status</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-val">{{ result.cost }}</div>
+        <div class="stat-lbl">Total Move Cost</div>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="result-desc-box">
+      <div class="desc-label">ALGORITHM ANALYSIS</div>
+      <p class="desc-text">{{ result.description }}</p>
+    </div>
+
+    <!-- Path Trace -->
+    {% if result.path %}
+    <div class="result-path-box">
+      <div class="desc-label">MOVE SEQUENCE ({{ result.path|length }} positions)</div>
+      <div class="path-trace">
+        {% for step in result.path %}
+          <span class="path-step">
+            {% if loop.first %}♟{% elif loop.last %}⚑{% else %}→{% endif %}
+            ({{ step[0] }},{{ step[1] }})
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="result-actions">
+      <a href="/game" class="result-btn btn-play">▶ PLAY AGAIN</a>
+      <a href="/"     class="result-btn btn-home">♟ HOME</a>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="results-content no-result">
+    <div class="banner-icon">♟</div>
+    <h1 class="banner-title">NO RESULTS YET</h1>
+    <p class="hero-desc">Run a pathfinding algorithm on the game board first.</p>
+    <a href="/game" class="result-btn btn-play">▶ GO TO GAME</a>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+{% if result and result.found %}
+const canvas = document.getElementById('confettiCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+const colors = ['#3b82f6','#60a5fa','#93c5fd','#a78bfa','#34d399','#22d3ee','#ffffff'];
+const pieces = Array.from({length:80},()=>({
+  x:Math.random()*canvas.width, y:Math.random()*-canvas.height,
+  w:Math.random()*10+4, h:Math.random()*6+3,
+  color:colors[Math.floor(Math.random()*colors.length)],
+  speed:Math.random()*3+1, angle:Math.random()*360, spin:(Math.random()-.5)*4
+}));
+(function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  pieces.forEach(p=>{
+    ctx.save(); ctx.translate(p.x+p.w/2,p.y+p.h/2);
+    ctx.rotate(p.angle*Math.PI/180); ctx.fillStyle=p.color; ctx.globalAlpha=.75;
+    ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+    p.y+=p.speed; p.angle+=p.spin;
+    if(p.y>canvas.height){p.y=-20;p.x=Math.random()*canvas.width;}
+  });
+  requestAnimationFrame(draw);
+})();
+{% endif %}
+</script>
+{% endblock %}
