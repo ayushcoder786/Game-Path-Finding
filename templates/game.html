@@ -17,20 +17,7 @@
     <aside class="left-panel">
 
       <section class="panel-section">
-        <h3 class="panel-heading">BOARD SETTINGS</h3>
-        <label class="ctrl-label">BOARD SIZE (N)</label>
-        <div class="number-ctrl">
-          <button class="num-btn" onclick="changeN(-1)">−</button>
-          <span id="gridSizeDisplay">8</span>
-          <button class="num-btn" onclick="changeN(1)">+</button>
-        </div>
-        <label class="ctrl-label" style="margin-top:14px;">OBSTACLES (%)</label>
-        <div class="number-ctrl">
-          <button class="num-btn" onclick="changeObs(-5)">−</button>
-          <span id="obstacleDisplay">20</span>
-          <button class="num-btn" onclick="changeObs(5)">+</button>
-        </div>
-        <label class="ctrl-label" style="margin-top:14px;">MOVE SPEED</label>
+        <h3 class="panel-heading">MOVE SPEED</h3>
         <select id="speedSelect" class="styled-select">
           <option value="700">Slow</option>
           <option value="350" selected>Medium</option>
@@ -39,18 +26,24 @@
         </select>
       </section>
 
-      <!-- CHESS PIECE SELECTOR -->
+      <!-- SELECTED PIECES DISPLAY -->
       <section class="panel-section">
-        <h3 class="panel-heading">CHESS PIECE</h3>
-        <div class="piece-grid" id="pieceGrid"></div>
-        <div class="piece-info" id="pieceInfo">King moves 1 step in any direction.</div>
-      </section>
-
-      <!-- GOAL PIECE SELECTOR -->
-      <section class="panel-section">
-        <h3 class="panel-heading">GOAL PIECE <span style="font-size:.6rem;color:var(--t3)">(to capture)</span></h3>
-        <div class="piece-grid" id="goalPieceGrid"></div>
-        <div class="piece-info" id="goalPieceInfo">Queen — the piece your start piece will capture.</div>
+        <h3 class="panel-heading">SELECTED PIECES</h3>
+        <div class="selected-pieces-display">
+          <div class="sel-piece-row sel-start-row" id="selStartRow">
+            <div class="sel-badge start-badge">START</div>
+            <span class="sel-piece-sym" id="selStartSym">—</span>
+            <span class="sel-piece-name" id="selStartName">Click a piece on board</span>
+          </div>
+          <div class="sel-piece-row sel-goal-row" id="selGoalRow">
+            <div class="sel-badge goal-badge">GOAL</div>
+            <span class="sel-piece-sym goal-sym" id="selGoalSym">—</span>
+            <span class="sel-piece-name" id="selGoalName">Click a piece on board</span>
+          </div>
+        </div>
+        <div class="piece-info" style="margin-top:8px">
+          🎯 Click any piece to set <strong style="color:var(--accent-l)">Start</strong>, then click another as <strong style="color:#f87171">Goal</strong>.
+        </div>
       </section>
 
       <!-- PLACEMENT MODE -->
@@ -61,6 +54,19 @@
           <button class="mode-btn" id="modeGoal"  onclick="setMode('goal')">⚑ Goal</button>
           <button class="mode-btn" id="modeWall"  onclick="setMode('wall')">▪ Wall</button>
           <button class="mode-btn" id="modeErase" onclick="setMode('erase')">✕ Erase</button>
+        </div>
+      </section>
+
+
+      <!-- PUZZLE PRESETS -->
+      <section class="panel-section">
+        <h3 class="panel-heading">PUZZLE PRESETS</h3>
+        <div class="preset-btns">
+          <button class="preset-btn" onclick="loadPreset('knights_duel')">♞ Knight's Duel</button>
+          <button class="preset-btn" onclick="loadPreset('kings_gauntlet')">♔ King's Gauntlet</button>
+          <button class="preset-btn" onclick="loadPreset('rooks_race')">♖ Rook's Race</button>
+          <button class="preset-btn" onclick="loadPreset('bishops_cross')">♗ Bishop's Cross</button>
+          <button class="preset-btn" onclick="loadPreset('pawn_march')">♙ Pawn's March</button>
         </div>
       </section>
 
@@ -76,9 +82,10 @@
     <!-- ── CENTER: CHESS BOARD ── -->
     <main class="center-panel">
 
-      <div class="turn-bar">
+      <div class="turn-bar" style="flex-wrap:wrap;gap:6px;">
         <div class="turn-label">MODE</div>
         <div id="modeDisplay" class="turn-display">Placing Start</div>
+        <div id="turnIndicator" style="display:none;font-family:var(--ff-u);font-size:.72rem;padding:4px 14px;border-radius:20px;font-weight:700;letter-spacing:.08em;">⚔ Player 1's Turn</div>
         <div id="statusLabel" class="status-label">Set up your board to begin</div>
       </div>
 
@@ -122,6 +129,14 @@
         <button class="ctrl-btn btn-stop"  onclick="stopSolve()">■ STOP</button>
         <button class="ctrl-btn btn-reset" onclick="resetBoard()">↺ RESET</button>
         <button class="ctrl-btn btn-rand"  onclick="randomWalls()">⚄ RANDOM</button>
+      </div>
+
+      <!-- Extra feature controls -->
+      <div class="extra-controls">
+        <button class="btn-compare" id="compareBtn" onclick="compareAlgos()">⚖ COMPARE ALL</button>
+        <button class="btn-heatmap" id="heatmapBtn" onclick="toggleHeatmap()">🌡 HEAT MAP</button>
+        <button class="btn-explore" id="exploreBtn" onclick="toggleExploration()">🔍 EXPLORATION</button>
+        <button class="btn-sound"   id="soundBtn"   onclick="toggleSound()">🔊 SOUND</button>
       </div>
 
       <div class="move-history-box">
@@ -171,10 +186,41 @@
   </div>
 </div>
 
+
+<!-- ════════════════════════ COMPARISON MODAL ════════════════════════ -->
+<div id="compareModal" class="compare-modal" style="display:none">
+  <div class="compare-inner">
+    <div class="compare-header">
+      <div>
+        <div class="compare-title">⚖ ALGORITHM COMPARISON</div>
+        <div class="compare-subtitle">ALL 13 ALGORITHMS — SAME BOARD — HEAD TO HEAD</div>
+      </div>
+      <button class="compare-close" onclick="closeCompare()">✕</button>
+    </div>
+    <div class="compare-body">
+      <div id="compareLoading" class="compare-loading">
+        <span class="compare-spinner"></span>Running all algorithms…
+      </div>
+      <div id="compareContent" style="display:none">
+        <div id="compareTable"></div>
+        <div class="compare-legend">
+          <span class="legend-pill"><span style="color:#34d399">🏆</span> Best in category</span>
+          <span class="legend-pill"><span style="color:#f87171">❌</span> No path found</span>
+          <span class="legend-pill"><span style="color:#a78bfa">⚡</span> Fastest time</span>
+          <span class="legend-pill"><span style="color:#60a5fa">📐</span> Optimal (shortest path)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════
 //  CONSTANTS
 // ═══════════════════════════════════════════════════
+const WHITE_SYMS = {king:'♔',queen:'♕',rook:'♖',bishop:'♗',knight:'♘',pawn:'♙'};
+const BLACK_SYMS = {king:'♚',queen:'♛',rook:'♜',bishop:'♝',knight:'♞',pawn:'♟'};
+
 const PIECES = {
   king:   { sym:'♔', name:'King',   desc:'Moves 1 step in any of 8 directions.' },
   queen:  { sym:'♕', name:'Queen',  desc:'Slides any distance in 8 directions.' },
@@ -184,34 +230,66 @@ const PIECES = {
   pawn:   { sym:'♙', name:'Pawn',   desc:'Moves 1 step orthogonally (simplified for pathfinding).' },
 };
 
+// Standard 8×8 chess starting layout: [row, col, type, color]
+const CHESS_SETUP = [
+  [0,0,'rook','black'],[0,1,'knight','black'],[0,2,'bishop','black'],
+  [0,3,'queen','black'],[0,4,'king','black'],[0,5,'bishop','black'],
+  [0,6,'knight','black'],[0,7,'rook','black'],
+  [1,0,'pawn','black'],[1,1,'pawn','black'],[1,2,'pawn','black'],[1,3,'pawn','black'],
+  [1,4,'pawn','black'],[1,5,'pawn','black'],[1,6,'pawn','black'],[1,7,'pawn','black'],
+  [6,0,'pawn','white'],[6,1,'pawn','white'],[6,2,'pawn','white'],[6,3,'pawn','white'],
+  [6,4,'pawn','white'],[6,5,'pawn','white'],[6,6,'pawn','white'],[6,7,'pawn','white'],
+  [7,0,'rook','white'],[7,1,'knight','white'],[7,2,'bishop','white'],
+  [7,3,'queen','white'],[7,4,'king','white'],[7,5,'bishop','white'],
+  [7,6,'knight','white'],[7,7,'rook','white'],
+];
+
 const ALGOS = [
-  { id:'bfs',          name:'BFS',             cat:'Uninformed', color:'#4ade80' },
-  { id:'dfs',          name:'DFS',             cat:'Uninformed', color:'#60a5fa' },
-  { id:'ucs',          name:'UCS',             cat:'Uninformed', color:'#a78bfa' },
-  { id:'astar',        name:'A*',              cat:'Informed',   color:'#34d399' },
-  { id:'greedy',       name:'Greedy',          cat:'Informed',   color:'#22d3ee' },
-  { id:'csp',          name:'CSP Backtrack',   cat:'CSP',        color:'#f472b6' },
-  { id:'minconflicts', name:'Min Conflicts',   cat:'CSP',        color:'#e879f9' },
-  { id:'minimax2',     name:'Minimax 2P',      cat:'Adversarial',color:'#f87171' },
-  { id:'minimax3',     name:'Minimax 3P',      cat:'Adversarial',color:'#fb923c' },
-  { id:'alphabeta',    name:'Alpha-Beta',      cat:'Adversarial',color:'#fbbf24' },
-  { id:'hillclimbing', name:'Hill Climbing',   cat:'Local',      color:'#94a3b8' },
+  { id:'bfs',             name:'BFS',                       cat:'Uninformed',  color:'#4ade80' },
+  { id:'dfs',             name:'DFS',                       cat:'Uninformed',  color:'#60a5fa' },
+  { id:'ucs',             name:'UCS',                       cat:'Uninformed',  color:'#a78bfa' },
+  { id:'astar',           name:'A*',                        cat:'Informed',    color:'#34d399' },
+  { id:'greedy',          name:'Greedy Best First',          cat:'Informed',    color:'#22d3ee' },
+  { id:'backtracking',    name:'Backtracking',               cat:'CSP',         color:'#f472b6' },
+  { id:'forwardchecking', name:'Forward Checking',           cat:'CSP',         color:'#e879f9' },
+  { id:'csp',             name:'CSP',                       cat:'CSP',         color:'#c084fc' },
+  { id:'minimax',         name:'Minimax',                   cat:'Adversarial', color:'#f87171' },
+  { id:'alphabeta',       name:'Alpha Beta Pruning',         cat:'Adversarial', color:'#fbbf24' },
+  { id:'minconflicts',    name:'Min Conflicts',              cat:'CSP',         color:'#fb923c' },
+  { id:'hmm',             name:'HMM (Hidden Markov Model)', cat:'Probabilistic',color:'#38bdf8' },
+  { id:'bayesian',        name:'Bayesian Network',           cat:'Probabilistic',color:'#f0abfc' },
 ];
 
 // ═══════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════
 let N = 8, obsPct = 20;
-let grid = [], startPos = null, goalPos = null;
+let grid = [];          // user-placed walls only (1=wall)
+let boardPieces = {};   // key: "r,c" → {type, color}
+let startPos = null, goalPos = null;
+// ── Player 2 (the other side) positions ──
+let p2StartPos = null, p2GoalPos = null;
 let mode = 'start', selectedAlgo = 'bfs', selectedPiece = 'king', selectedGoalPiece = 'queen';
 let isRunning = false, animTid = null, isDown = false;
+// ── New feature state ──
+let lastExplored = [];         // exploration overlay data
+let showExploration = false;   // exploration overlay toggle
+let heatmapData = null;        // Bayesian heat map data
+let showHeatmap = false;       // heat map toggle
+let soundEnabled = true;       // sound toggle
+let audioCtx = null;           // Web Audio context (lazy init)
+// ── Live piece positions during animation ──
+let p1LivePos = null;   // current board position of player 1's piece
+let p2LivePos = null;   // current board position of player 2's piece
+let p1Symbol = '♙';    // symbol for P1 moving piece
+let p2Symbol = '♟';    // symbol for P2 moving piece
+// ── Turn display ──
+let currentTurn = 1;    // 1 or 2
 
 // ═══════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════
 function init() {
-  buildPieceGrid();
-  buildGoalPieceGrid();
   buildAlgoList();
   buildAlgoLegend();
   buildBoard();
@@ -316,10 +394,20 @@ function buildAlgoLegend() {
 //  BOARD
 // ═══════════════════════════════════════════════════
 function buildBoard() {
-  grid = Array.from({length:N}, ()=>Array(N).fill(0));
+  N = 8; // Always 8×8 for standard chess setup
+  grid = Array.from({length:N}, () => Array(N).fill(0));
   startPos = null; goalPos = null;
+
+  // Place all 32 chess pieces in standard starting positions
+  boardPieces = {};
+  CHESS_SETUP.forEach(([r, c, type, color]) => {
+    boardPieces[`${r},${c}`] = { type, color };
+  });
+
   renderBoard();
   updateStats();
+  updateSelectedPiecesDisplay();
+  setMode('start');
 }
 
 function renderBoard() {
@@ -335,18 +423,18 @@ function renderBoard() {
   // Labels
   const colLetters = 'abcdefghijklmnopqrst';
   cols.style.gridTemplateColumns = `repeat(${N},${sz}px)`;
-  for(let c=0;c<N;c++){
-    const l=document.createElement('div'); l.className='board-label';
-    l.textContent=colLetters[c]; cols.appendChild(l);
+  for(let c=0; c<N; c++){
+    const l = document.createElement('div'); l.className = 'board-label';
+    l.textContent = colLetters[c]; cols.appendChild(l);
   }
   rows.style.gridTemplateRows = `repeat(${N},${sz}px)`;
-  for(let r=0;r<N;r++){
-    const l=document.createElement('div'); l.className='board-label';
-    l.textContent=N-r; rows.appendChild(l);
+  for(let r=0; r<N; r++){
+    const l = document.createElement('div'); l.className = 'board-label';
+    l.textContent = N-r; rows.appendChild(l);
   }
 
   // Cells
-  for(let r=0;r<N;r++) for(let c=0;c<N;c++) {
+  for(let r=0; r<N; r++) for(let c=0; c<N; c++) {
     const cell = document.createElement('div');
     cell.id = `c-${r}-${c}`;
     cell.className = 'chess-cell' + ((r+c)%2===0 ? ' light' : ' dark');
@@ -356,40 +444,56 @@ function renderBoard() {
     inner.style.fontSize = Math.max(sz*0.55,14)+'px';
     cell.appendChild(inner);
     setCell(cell, r, c);
-    cell.addEventListener('mousedown', ()=>{ isDown=true; click(r,c); });
-    cell.addEventListener('mouseenter',()=>{ if(isDown) click(r,c); });
+    cell.addEventListener('mousedown', () => { isDown=true; click(r,c); });
+    cell.addEventListener('mouseenter', () => { if(isDown) click(r,c); });
     board.appendChild(cell);
   }
-  document.addEventListener('mouseup',()=>{ isDown=false; });
+  document.addEventListener('mouseup', () => { isDown=false; });
 }
 
 function setCell(cell, r, c) {
-  const blackSyms = {king:'♚',queen:'♛',rook:'♜',bishop:'♝',knight:'♞',pawn:'♟'};
   const inner = cell.querySelector('.cell-inner');
-  cell.classList.remove('start-cell','goal-cell','wall-cell','path-trail','piece-on','piece-arrive');
+  cell.classList.remove('start-cell','goal-cell','wall-cell','path-trail',
+                        'piece-on','piece-arrive','has-white-piece','has-black-piece');
   inner.textContent = '';
+  inner.style.color = '';
+
+  const key = `${r},${c}`;
+  const bp  = boardPieces[key];
 
   if(startPos && startPos[0]===r && startPos[1]===c) {
     cell.classList.add('start-cell');
-    inner.textContent = PIECES[selectedPiece].sym;
+    inner.textContent = bp
+      ? (bp.color==='white' ? WHITE_SYMS[bp.type] : BLACK_SYMS[bp.type])
+      : WHITE_SYMS[selectedPiece];
   } else if(goalPos && goalPos[0]===r && goalPos[1]===c) {
     cell.classList.add('goal-cell');
-    inner.textContent = blackSyms[selectedGoalPiece];
-    inner.style.color = '#f87171';
+    inner.textContent = bp
+      ? (bp.color==='white' ? WHITE_SYMS[bp.type] : BLACK_SYMS[bp.type])
+      : BLACK_SYMS[selectedGoalPiece];
+    inner.style.color = '#fca5a5';
   } else if(grid[r][c]===1) {
     cell.classList.add('wall-cell');
     inner.textContent = '▪';
+  } else if(bp) {
+    if(bp.color === 'white') {
+      cell.classList.add('has-white-piece');
+      inner.textContent = WHITE_SYMS[bp.type];
+    } else {
+      cell.classList.add('has-black-piece');
+      inner.textContent = BLACK_SYMS[bp.type];
+    }
   }
 }
 
 function refreshCell(r, c) {
   const cell = document.getElementById(`c-${r}-${c}`);
-  if(cell) setCell(cell,r,c);
+  if(cell) setCell(cell, r, c);
 }
 
 function isSpecial(r, c) {
-  return (startPos&&startPos[0]===r&&startPos[1]===c)||
-         (goalPos &&goalPos[0] ===r&&goalPos[1] ===c);
+  return (startPos && startPos[0]===r && startPos[1]===c) ||
+         (goalPos  && goalPos[0] ===r && goalPos[1] ===c);
 }
 
 // ═══════════════════════════════════════════════════
@@ -398,42 +502,120 @@ function isSpecial(r, c) {
 function click(r, c) {
   if(isRunning) return;
   clearViz();
-  if(mode==='start') {
-    const old=startPos; startPos=[r,c];
-    if(grid[r][c]===1) grid[r][c]=0;
-    if(old) refreshCell(old[0],old[1]);
-    refreshCell(r,c);
-  } else if(mode==='goal') {
-    const old=goalPos; goalPos=[r,c];
-    if(grid[r][c]===1) grid[r][c]=0;
-    if(old) refreshCell(old[0],old[1]);
-    refreshCell(r,c);
-  } else if(mode==='wall') {
+
+  const key = `${r},${c}`;
+  const bp  = boardPieces[key];
+
+  if(mode === 'wall') {
+    if(isSpecial(r,c) || bp) return; // Cannot wall over chess pieces
+    grid[r][c] = 1; refreshCell(r,c);
+    return;
+  }
+  if(mode === 'erase') {
     if(isSpecial(r,c)) return;
-    grid[r][c]=1; refreshCell(r,c);
-  } else if(mode==='erase') {
-    if(isSpecial(r,c)) return;
-    grid[r][c]=0; refreshCell(r,c);
+    grid[r][c] = 0; refreshCell(r,c);
+    return;
+  }
+
+  // Start / Goal modes — must click on a chess piece
+  if(mode === 'start') {
+    if(!bp) { setStatus('⚠ Click on a chess piece to set Start!','warn'); return; }
+    if(goalPos && goalPos[0]===r && goalPos[1]===c) return;
+    const old = startPos; startPos = [r, c];
+    selectedPiece = bp.type; // Auto-detect piece type
+    if(old) refreshCell(old[0], old[1]);
+    refreshCell(r, c);
+    updateSelectedPiecesDisplay();
+    setStatus(`✔ Start set: ${bp.color} ${bp.type}. Now click Goal piece.`, 'running');
+    if(!goalPos) setMode('goal'); // Auto-advance to goal selection
+  } else if(mode === 'goal') {
+    if(!bp) { setStatus('⚠ Click on a chess piece to set Goal!','warn'); return; }
+    if(startPos && startPos[0]===r && startPos[1]===c) { setStatus('⚠ Goal cannot be same as Start!','warn'); return; }
+    const old = goalPos; goalPos = [r, c];
+    selectedGoalPiece = bp.type; // Auto-detect goal piece type
+    if(old) refreshCell(old[0], old[1]);
+    refreshCell(r, c);
+    updateSelectedPiecesDisplay();
+    setStatus(`✔ Goal set: ${bp.color} ${bp.type}. Press START to solve!`, 'success');
   }
 }
 
 function setMode(m) {
   mode = m;
-  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('mode'+m.charAt(0).toUpperCase()+m.slice(1)).classList.add('active');
-  document.getElementById('modeDisplay').textContent = 'Placing '+m.charAt(0).toUpperCase()+m.slice(1);
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  const btnId = 'mode' + m.charAt(0).toUpperCase() + m.slice(1);
+  const btn = document.getElementById(btnId);
+  if(btn) btn.classList.add('active');
+  const labels = {
+    start: 'Click a piece → Set START',
+    goal:  'Click a piece → Set GOAL',
+    wall:  'Click empty cell → Add Wall',
+    erase: 'Click any cell  → Erase'
+  };
+  document.getElementById('modeDisplay').textContent = labels[m] || m;
 }
 
-function changeN(d) { N=Math.max(5,Math.min(20,N+d)); document.getElementById('gridSizeDisplay').textContent=N; buildBoard(); }
-function changeObs(d) { obsPct=Math.max(0,Math.min(60,obsPct+d)); document.getElementById('obstacleDisplay').textContent=obsPct; }
+function updateSelectedPiecesDisplay() {
+  const startSym  = document.getElementById('selStartSym');
+  const startName = document.getElementById('selStartName');
+  const goalSym   = document.getElementById('selGoalSym');
+  const goalName  = document.getElementById('selGoalName');
+
+  if(startPos) {
+    const bp = boardPieces[`${startPos[0]},${startPos[1]}`];
+    if(bp) {
+      startSym.textContent  = bp.color==='white' ? WHITE_SYMS[bp.type] : BLACK_SYMS[bp.type];
+      startName.textContent = (bp.color==='white'?'White ':'Black ') +
+                              bp.type.charAt(0).toUpperCase()+bp.type.slice(1);
+    }
+  } else {
+    startSym.textContent  = '—';
+    startName.textContent = 'Click a piece on board';
+  }
+
+  if(goalPos) {
+    const bp = boardPieces[`${goalPos[0]},${goalPos[1]}`];
+    if(bp) {
+      goalSym.textContent  = bp.color==='white' ? WHITE_SYMS[bp.type] : BLACK_SYMS[bp.type];
+      goalName.textContent = (bp.color==='white'?'White ':'Black ') +
+                             bp.type.charAt(0).toUpperCase()+bp.type.slice(1);
+    }
+  } else {
+    goalSym.textContent  = '—';
+    goalName.textContent = 'Click a piece on board';
+  }
+}
+
+function changeN(d) { N=Math.max(5,Math.min(20,N+d)); buildBoard(); }
+function changeObs(d) { obsPct=Math.max(0,Math.min(60,obsPct+d)); }
 
 function resetBoard() { stopSolve(); buildBoard(); clearDesc(); }
+
+// Build a solve-grid: only user-placed walls become obstacles (value=1).
+// Piece blocking is now handled by the backend via board_pieces list.
+function buildSolveGrid() {
+  return grid.map(row => [...row]);
+}
+
+// Build the board_pieces list for the backend: all pieces except start and goal
+function buildBoardPiecesList() {
+  const result = [];
+  Object.entries(boardPieces).forEach(([key, bp]) => {
+    const [r, c] = key.split(',').map(Number);
+    // Skip start and goal — they're already known to backend as start/goal
+    if (isSpecial(r, c)) return;
+    result.push([r, c, bp.color]);
+  });
+  return result;
+}
 
 function randomWalls() {
   if(isRunning) return;
   clearViz();
-  for(let r=0;r<N;r++) for(let c=0;c<N;c++) {
-    if(!isSpecial(r,c)) grid[r][c] = Math.random()*100<obsPct?1:0;
+  for(let r=0; r<N; r++) for(let c=0; c<N; c++) {
+    // Don't place walls on piece cells or start/goal
+    if(!isSpecial(r,c) && !boardPieces[`${r},${c}`])
+      grid[r][c] = Math.random()*100 < obsPct ? 1 : 0;
   }
   renderBoard();
 }
@@ -442,31 +624,196 @@ function randomWalls() {
 //  SOLVE & ANIMATE
 // ═══════════════════════════════════════════════════
 async function startSolve() {
-  if(!startPos||!goalPos) { setStatus('⚠ Place ♟ Start and ⚑ Goal first!','warn'); return; }
+  if(!startPos||!goalPos) { setStatus('⚠ Click a chess piece for Start and another for Goal first!','warn'); playSound('error'); return; }
   if(isRunning) return;
   isRunning = true;
+  currentTurn = 1;
   clearViz();
-  setStatus('⚙ Computing path with '+ALGOS.find(a=>a.id===selectedAlgo)?.name+'…','running');
+  clearExploration();
+  lastExplored = [];
+  if (showExploration) {
+    showExploration = false;
+    document.getElementById('exploreBtn').classList.remove('active');
+    document.getElementById('exploreBtn').textContent = '🔍 EXPLORATION';
+  }
+  playSound('click');
+
+  const solveGrid = buildSolveGrid();
+  const boardPiecesList = buildBoardPiecesList();
+
+  // ── Player 1 setup ──
+  const p1Bp = boardPieces[`${startPos[0]},${startPos[1]}`];
+  const p1Color = p1Bp ? p1Bp.color : 'white';
+  const p1Type  = p1Bp ? p1Bp.type  : selectedPiece;
+  p1Symbol = p1Bp ? (p1Color==='white' ? WHITE_SYMS[p1Type] : BLACK_SYMS[p1Type]) : WHITE_SYMS[selectedPiece];
+
+  // ── Player 2 setup (goal piece moves toward start) ──
+  const p2Bp = boardPieces[`${goalPos[0]},${goalPos[1]}`];
+  const p2Color = p2Bp ? p2Bp.color : 'black';
+  const p2Type  = p2Bp ? p2Bp.type  : selectedGoalPiece;
+  p2Symbol = p2Bp ? (p2Color==='white' ? WHITE_SYMS[p2Type] : BLACK_SYMS[p2Type]) : BLACK_SYMS[selectedGoalPiece];
+
+  // Determine which sides are AI-controlled
+  const p1IsAI = (gameModP1 === 'ai');
+  const p2IsAI = (gameModP2 === 'ai');
+
+  setStatus('⚙ Computing path(s)…','running');
 
   try {
-    const resp = await fetch('/api/solve', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({grid, start:startPos, goal:goalPos,
-                            algorithm:selectedAlgo, piece_type:selectedPiece})
-    });
-    const result = await resp.json();
-    if(result.error) { setStatus('❌ '+result.error,'error'); isRunning=false; return; }
-
-    updateStatsFromResult(result);
-
-    if(result.found && result.path.length > 0) {
-      await movePiece(result.path, result);
-      setStatus(`✅ Done! Cost: ${result.cost} | Steps: ${result.path_length}`, 'success');
-    } else {
-      setStatus('❌ No path found — walls block every route!','error');
+    // ── Compute P1 path only if AI ──
+    let r1 = null, p1Path = null;
+    if (p1IsAI) {
+      const resp1 = await fetch('/api/solve', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          grid: solveGrid, start: startPos, goal: goalPos,
+          algorithm: selectedAlgo, piece_type: p1Type, piece_color: p1Color,
+          board_pieces: boardPiecesList
+        })
+      });
+      r1 = await resp1.json();
+      if(r1.error) { setStatus('❌ P1: '+r1.error,'error'); playSound('error'); isRunning=false; return; }
+      p1Path = (r1.found && r1.path.length > 0) ? r1.path : null;
+      lastExplored = r1.explored || [];
+      updateStatsFromResult(r1);
+      if(r1.description) document.getElementById('algoDesc').textContent = r1.description;
     }
-    document.getElementById('algoDesc').textContent = result.description;
-    logPath(result);
+
+    // ── Compute P2 path only if AI ──
+    let r2 = null, p2Path = null;
+    if (p2IsAI) {
+      const resp2 = await fetch('/api/solve', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          grid: solveGrid, start: goalPos, goal: startPos,
+          algorithm: selectedAlgo, piece_type: p2Type, piece_color: p2Color,
+          board_pieces: buildBoardPiecesListExcept(startPos, goalPos)
+        })
+      });
+      r2 = await resp2.json();
+      if(r2.found && r2.path.length > 0) p2Path = r2.path;
+    }
+
+    // If neither side is AI, just run P1 as AI (solo solve mode)
+    if (!p1IsAI && !p2IsAI) {
+      const resp1 = await fetch('/api/solve', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          grid: solveGrid, start: startPos, goal: goalPos,
+          algorithm: selectedAlgo, piece_type: p1Type, piece_color: p1Color,
+          board_pieces: boardPiecesList
+        })
+      });
+      r1 = await resp1.json();
+      if(r1.error) { setStatus('❌ '+r1.error,'error'); playSound('error'); isRunning=false; return; }
+      p1Path = (r1.found && r1.path.length > 0) ? r1.path : null;
+      lastExplored = r1.explored || [];
+      updateStatsFromResult(r1);
+      document.getElementById('algoDesc').textContent = r1.description;
+      logPath(r1);
+    }
+
+    if (!p1Path && !p2Path) {
+      setStatus('❌ No path found for any AI player!', 'error');
+      playSound('error');
+      isRunning = false;
+      return;
+    }
+
+    // ── Alternating turn animation ──
+    const turnInd = document.getElementById('turnIndicator');
+    turnInd.style.display = 'inline-block';
+
+    const speed = parseInt(document.getElementById('speedSelect').value);
+    p1LivePos = [...startPos];
+    p2LivePos = [...goalPos];
+
+    let p1Step = 0;
+    let p2Step = 0;
+    let p1Done = !p1Path;  // Human P1 is "done" (doesn't auto-move)
+    let p2Done = !p2Path;  // Human P2 is "done" (doesn't auto-move)
+    let winner = null;
+
+    // Initial draw
+    placeLivePiece(p1LivePos, p1Symbol, 'p1');
+    placeLivePiece(p2LivePos, p2Symbol, 'p2');
+
+    while(isRunning && (!p1Done || !p2Done) && !winner) {
+      // ── Player 1's turn (only if AI) ──
+      if(!p1Done && p1Path) {
+        currentTurn = 1;
+        turnInd.textContent = `⚔ ${p1IsAI ? 'AI' : 'Player 1'}'s Turn`;
+        turnInd.style.background = 'rgba(167,139,250,.25)';
+        turnInd.style.color = '#c4b5fd';
+        turnInd.style.border = '1px solid rgba(167,139,250,.4)';
+        setStatus(`♟ ${p1IsAI ? 'AI (P1)' : 'Player 1'} moving… (step ${p1Step+1}/${p1Path.length-1})`, 'running');
+        p1Step++;
+        if(p1Step < p1Path.length) {
+          const [pr,pc] = p1Path[p1Step-1];
+          const [nr,nc] = p1Path[p1Step];
+          leavePieceTrail(pr, pc, p1Step, 'p1');
+          p1LivePos = [nr, nc];
+          if(nr===p2LivePos[0] && nc===p2LivePos[1]) { winner=1; break; }
+          if(nr===goalPos[0] && nc===goalPos[1]) { winner=1; p1Done=true; }
+          else placeLivePiece(p1LivePos, p1Symbol, 'p1');
+          playSound('move');
+          updateLiveCost(p1Step, Math.abs(nr-goalPos[0])+Math.abs(nc-goalPos[1]), r1 ? r1.path_length : p1Path.length);
+        }
+        if(p1Step >= p1Path.length-1) p1Done = true;
+        if(winner) break;
+        await sleep(speed);
+        if(!isRunning) break;
+      }
+
+      // ── Player 2's turn (only if AI) ──
+      if(!p2Done && p2Path && isRunning) {
+        currentTurn = 2;
+        turnInd.textContent = `⚔ ${p2IsAI ? 'AI' : 'Player 2'}'s Turn`;
+        turnInd.style.background = 'rgba(251,191,36,.15)';
+        turnInd.style.color = '#fcd34d';
+        turnInd.style.border = '1px solid rgba(251,191,36,.3)';
+        setStatus(`⚑ ${p2IsAI ? 'AI (P2)' : 'Player 2'} moving… (step ${p2Step+1}/${p2Path.length-1})`, 'running');
+        p2Step++;
+        if(p2Step < p2Path.length) {
+          const [pr,pc] = p2Path[p2Step-1];
+          const [nr,nc] = p2Path[p2Step];
+          leavePieceTrail(pr, pc, p2Step, 'p2');
+          p2LivePos = [nr, nc];
+          if(nr===p1LivePos[0] && nc===p1LivePos[1]) { winner=2; break; }
+          if(nr===startPos[0] && nc===startPos[1]) { winner=2; p2Done=true; }
+          else placeLivePiece(p2LivePos, p2Symbol, 'p2');
+          playSound('move');
+        }
+        if(p2Step >= p2Path.length-1) p2Done = true;
+        if(winner) break;
+        await sleep(speed);
+        if(!isRunning) break;
+      }
+
+      // If only one side is AI and it finishes, stop
+      if(p1Done && !p2Path) break;
+      if(p2Done && !p1Path) break;
+    }
+
+    turnInd.style.display = 'none';
+
+    // ── Determine outcome ──
+    if(winner===1 || (p1Done && !winner && p1Path)) {
+      const gc = document.getElementById(`c-${goalPos[0]}-${goalPos[1]}`);
+      if(gc) { gc.classList.add('goal-reached','capture-flash'); gc.querySelector('.cell-inner').textContent = '⚔'; }
+      playSound('capture');
+      setStatus(`🏆 ${p1IsAI ? 'AI (P1)' : 'Player 1'} Wins! Goal reached in ${r1 ? r1.path_length : p1Path.length} steps.`, 'success');
+      if(r1) logPath(r1);
+    } else if(winner===2 || (p2Done && !winner && p2Path)) {
+      const sc = document.getElementById(`c-${startPos[0]}-${startPos[1]}`);
+      if(sc) { sc.classList.add('goal-reached','capture-flash'); sc.querySelector('.cell-inner').textContent = '⚔'; }
+      playSound('capture');
+      setStatus(`🏆 ${p2IsAI ? 'AI (P2)' : 'Player 2'} Wins! Goal reached in ${r2 ? r2.path_length : p2Path.length} steps.`, 'success');
+      if(r2) logPath(r2);
+    } else {
+      setStatus('⏹ Game stopped.', '');
+    }
+
   } catch(e) {
     setStatus('❌ Connection error: '+e.message,'error');
   }
@@ -481,57 +828,52 @@ function stopSolve() {
 
 function sleep(ms) { return new Promise(r=>{ animTid=setTimeout(r,ms); }); }
 
-async function movePiece(path, result) {
-  const speed = parseInt(document.getElementById('speedSelect').value);
-  const goalR = goalPos[0], goalC = goalPos[1];
+// ── Helper: place a live piece marker on board ──
+function placeLivePiece(pos, sym, player) {
+  const [r,c] = pos;
+  const cell = document.getElementById(`c-${r}-${c}`);
+  if(!cell) return;
+  cell.classList.remove('path-trail','has-white-piece','has-black-piece');
+  cell.classList.add('piece-on');
+  void cell.offsetWidth;
+  cell.classList.add('piece-arrive');
+  cell.dataset.livePlayer = player;
+  const inner = cell.querySelector('.cell-inner');
+  inner.textContent = sym;
+  if(player==='p2') inner.style.color = '#fcd34d';
+  else inner.style.color = '';
+}
 
-  for(let i=0; i<path.length; i++) {
-    if(!isRunning) break;
-    const [r,c] = path[i];
-
-    // Clear previous piece position (show trail)
-    if(i>0) {
-      const [pr,pc]=path[i-1];
-      const prevCell=document.getElementById(`c-${pr}-${pc}`);
-      if(prevCell && !isSpecial(pr,pc)) {
-        prevCell.classList.remove('piece-on','piece-arrive','start-cell');
-        prevCell.classList.add('path-trail');
-        prevCell.querySelector('.cell-inner').textContent = `${i}`;
-      }
-    }
-
-    // Place piece on current cell
-    const cell = document.getElementById(`c-${r}-${c}`);
-    if(cell) {
-      cell.classList.remove('start-cell','goal-cell','path-trail');
-      cell.classList.add('piece-on');
-      void cell.offsetWidth; // reflow for animation
-      cell.classList.add('piece-arrive');
-      cell.querySelector('.cell-inner').textContent = PIECES[selectedPiece].sym;
-    }
-
-    // Live cost update
-    const g = i;
-    const h = Math.abs(r-goalR)+Math.abs(c-goalC);
-    updateLiveCost(g, h, result.path_length);
-
-    if(i < path.length-1) await sleep(speed);
+// ── Helper: leave a step-number trail on a vacated cell ──
+function leavePieceTrail(r, c, stepNum, player) {
+  const cell = document.getElementById(`c-${r}-${c}`);
+  if(!cell) return;
+  // Don't overwrite the OTHER player's live position
+  if(cell.dataset.livePlayer && cell.dataset.livePlayer !== player) return;
+  cell.classList.remove('piece-on','piece-arrive','start-cell','goal-cell');
+  cell.dataset.livePlayer = '';
+  if(player==='p1') {
+    cell.classList.add('path-trail');
+    cell.style.setProperty('--trail-color','rgba(167,139,250,.35)');
+  } else {
+    cell.classList.add('path-trail');
+    cell.style.setProperty('--trail-color','rgba(251,191,36,.3)');
   }
+  const inner = cell.querySelector('.cell-inner');
+  inner.textContent = `${stepNum}`;
+  inner.style.color = player==='p2' ? '#fbbf24' : '#c4b5fd';
+}
 
-  // Capture animation at goal
-  if(result.found) {
-    const [gr,gc]=path[path.length-1];
-    const goalCell=document.getElementById(`c-${gr}-${gc}`);
-    if(goalCell) {
-      goalCell.classList.add('goal-reached','capture-flash');
-      goalCell.querySelector('.cell-inner').textContent='⚔';
-      // After flash, show trophy
-      setTimeout(()=>{
-        if(goalCell.querySelector('.cell-inner'))
-          goalCell.querySelector('.cell-inner').textContent='🏆';
-      }, 600);
-    }
-  }
+// ── Build board pieces list excluding both start and goal ──
+function buildBoardPiecesListExcept(pos1, pos2) {
+  const result = [];
+  Object.entries(boardPieces).forEach(([key, bp]) => {
+    const [r, c] = key.split(',').map(Number);
+    if(pos1 && r===pos1[0] && c===pos1[1]) return;
+    if(pos2 && r===pos2[0] && c===pos2[1]) return;
+    result.push([r, c, bp.color]);
+  });
+  return result;
 }
 
 // ═══════════════════════════════════════════════════
@@ -542,7 +884,8 @@ function clearViz() {
     if(!isSpecial(r,c)) {
       const cell=document.getElementById(`c-${r}-${c}`);
       if(cell) {
-        cell.classList.remove('path-trail','piece-on','piece-arrive','goal-reached');
+        cell.classList.remove('path-trail','piece-on','piece-arrive','goal-reached',
+                              'has-white-piece','has-black-piece');
         setCell(cell,r,c);
       }
     }
@@ -591,24 +934,491 @@ function updateStatsFromResult(r) {
 }
 
 function logPath(result) {
-  const algo=ALGOS.find(a=>a.id===selectedAlgo);
-  const c=algo?algo.color:'#60a5fa';
-  let html=`<span style="color:${c};font-weight:700">[${result.algorithm}]</span> `;
-  if(result.path&&result.path.length>0){
-    html+=result.path.map(([r,c])=>`(${r},${c})`).join(' → ');
-  } else html+='No path found.';
-  document.getElementById('pathLog').innerHTML=html;
+  const algo = ALGOS.find(a=>a.id===selectedAlgo);
+  const c = algo ? algo.color : '#60a5fa';
+  let html = `<span style="color:${c};font-weight:700">[${result.algorithm}]</span> `;
+  if(result.path && result.path.length>0){
+    html += result.path.map(([r,c])=>`(${r},${c})`).join(' → ');
+  } else html += 'No path found.';
+  document.getElementById('pathLog').innerHTML = html;
 }
 
 function clearDesc() {
-  document.getElementById('algoDesc').textContent='Select an algorithm and press START.';
-  document.getElementById('pathLog').textContent='No algorithm run yet…';
+  document.getElementById('algoDesc').textContent = 'Select an algorithm and press START.';
+  document.getElementById('pathLog').textContent  = 'No algorithm run yet…';
   updateStats();
+}
+
+function buildAlgoList() {
+  const el = document.getElementById('algoList');
+  el.innerHTML = '';
+  ALGOS.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'algo-btn' + (a.id === selectedAlgo ? ' active' : '');
+    btn.id = 'algo_' + a.id;
+    btn.style.setProperty('--ac', a.color);
+    btn.innerHTML = `<span class="algo-dot" style="background:${a.color}"></span>
+                     <span class="algo-btn-name">${a.name}</span>
+                     <span class="algo-cat">${a.cat}</span>`;
+    btn.onclick = () => selectAlgo(a.id);
+    el.appendChild(btn);
+  });
+}
+
+function selectAlgo(id) {
+  selectedAlgo = id;
+  document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('algo_' + id).classList.add('active');
+}
+
+function buildAlgoLegend() {
+  const el = document.getElementById('algoLegend');
+  const cats = {};
+  ALGOS.forEach(a => { (cats[a.cat] = cats[a.cat]||[]).push(a); });
+  el.innerHTML = Object.entries(cats).map(([cat, list]) =>
+    `<div class="legend-cat">${cat}</div>` +
+    list.map(a => `<div class="legend-item">
+      <span class="legend-dot" style="background:${a.color}"></span>
+      <strong>${a.name}</strong>
+    </div>`).join('')
+  ).join('');
 }
 
 // ═══════════════════════════════════════════════════
 //  BOOTSTRAP
 // ═══════════════════════════════════════════════════
 init();
+
+// ═══════════════════════════════════════════════════
+//  SOUND EFFECTS (Web Audio API)
+// ═══════════════════════════════════════════════════
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playSound(type) {
+  if (!soundEnabled) return;
+  try {
+    initAudio();
+    const now = audioCtx.currentTime;
+    if (type === 'move') {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(660, now);
+      osc.frequency.exponentialRampToValueAtTime(440, now + 0.06);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.start(now); osc.stop(now + 0.08);
+    } else if (type === 'capture') {
+      // Triumphant ascending chord
+      [[523,0],[659,.08],[784,.16],[1047,.26]].forEach(([freq, delay]) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.connect(g); g.connect(audioCtx.destination);
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(freq, now + delay);
+        g.gain.setValueAtTime(0.12, now + delay);
+        g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.35);
+        o.start(now + delay); o.stop(now + delay + 0.4);
+      });
+    } else if (type === 'error') {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.25);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.start(now); osc.stop(now + 0.3);
+    } else if (type === 'click') {
+      const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.03, audioCtx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random()*2-1) * (1 - i/data.length);
+      const src = audioCtx.createBufferSource();
+      const gain = audioCtx.createGain();
+      src.buffer = buf; src.connect(gain); gain.connect(audioCtx.destination);
+      gain.gain.setValueAtTime(0.04, now);
+      src.start(now);
+    }
+  } catch(e) { /* silent fail */ }
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('soundBtn');
+  btn.textContent = soundEnabled ? '🔊 SOUND' : '🔇 MUTED';
+  btn.classList.toggle('muted', !soundEnabled);
+  if (soundEnabled) { initAudio(); playSound('click'); }
+}
+
+// ═══════════════════════════════════════════════════
+//  ALGORITHM COMPARISON
+// ═══════════════════════════════════════════════════
+async function compareAlgos() {
+  if (!startPos || !goalPos) {
+    setStatus('⚠ Set Start and Goal before comparing!', 'warn');
+    playSound('error');
+    return;
+  }
+  playSound('click');
+  const modal = document.getElementById('compareModal');
+  const loading = document.getElementById('compareLoading');
+  const content = document.getElementById('compareContent');
+  modal.style.display = 'flex';
+  loading.style.display = 'block';
+  content.style.display = 'none';
+
+  const startBpData = boardPieces[`${startPos[0]},${startPos[1]}`];
+  const movingColor = startBpData ? startBpData.color : 'white';
+
+  try {
+    const resp = await fetch('/api/compare', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        grid: buildSolveGrid(), start: startPos, goal: goalPos,
+        piece_type: selectedPiece, piece_color: movingColor,
+        board_pieces: buildBoardPiecesList()
+      })
+    });
+    const data = await resp.json();
+    renderCompareTable(data);
+    loading.style.display = 'none';
+    content.style.display = 'block';
+    playSound('capture');
+  } catch(e) {
+    loading.innerHTML = `<span style="color:#f87171">❌ Error: ${e.message}</span>`;
+    playSound('error');
+  }
+}
+
+function renderCompareTable(data) {
+  const ALGO_META = {
+    bfs:          {name:'BFS',          cat:'Uninformed', color:'#4ade80'},
+    dfs:          {name:'DFS',          cat:'Uninformed', color:'#60a5fa'},
+    ucs:          {name:'UCS',          cat:'Uninformed', color:'#a78bfa'},
+    astar:        {name:'A*',           cat:'Informed',   color:'#34d399'},
+    greedy:       {name:'Greedy',       cat:'Informed',   color:'#22d3ee'},
+    csp:          {name:'CSP BT',       cat:'CSP',        color:'#f472b6'},
+    minconflicts: {name:'Min Conflicts',cat:'CSP',        color:'#e879f9'},
+    minimax2:     {name:'Minimax 2P',   cat:'Adversarial',color:'#f87171'},
+    minimax3:     {name:'Minimax 3P',   cat:'Adversarial',color:'#fb923c'},
+    alphabeta:    {name:'Alpha-Beta',   cat:'Adversarial',color:'#fbbf24'},
+    hillclimbing: {name:'Hill Climb',   cat:'Local',      color:'#94a3b8'},
+  };
+
+  const rows = Object.entries(data);
+  const found = rows.filter(([,v]) => v.found);
+  if (!found.length) {
+    document.getElementById('compareTable').innerHTML =
+      '<div style="text-align:center;padding:30px;color:#f87171;font-family:var(--ff-u)">No algorithm found a path. Try a different board setup.</div>';
+    return;
+  }
+
+  // Find bests among found paths
+  const minPath  = Math.min(...found.map(([,v]) => v.path_length));
+  const minNodes = Math.min(...found.map(([,v]) => v.nodes_explored));
+  const minTime  = Math.min(...found.map(([,v]) => v.time_ms));
+
+  let html = `<table class="compare-table">
+    <thead><tr>
+      <th>ALGORITHM</th><th>CATEGORY</th><th>FOUND</th>
+      <th>PATH LENGTH</th><th>NODES EXPLORED</th><th>COST</th><th>TIME (ms)</th><th>RATING</th>
+    </tr></thead><tbody>`;
+
+  rows.sort(([,a],[,b]) => {
+    if (a.found !== b.found) return b.found - a.found;
+    return a.path_length - b.path_length;
+  });
+
+  rows.forEach(([key, v]) => {
+    const meta = ALGO_META[key] || {name: key, cat:'?', color:'#888'};
+    const isBestPath  = v.found && v.path_length  === minPath;
+    const isBestNodes = v.found && v.nodes_explored === minNodes;
+    const isBestTime  = v.found && v.time_ms        === minTime;
+    const rowClass = isBestPath ? 'best-row' : '';
+    const rating = !v.found ? '—'
+      : (isBestPath && isBestTime) ? '⚡📐 Elite'
+      : isBestPath  ? '📐 Optimal'
+      : isBestTime  ? '⚡ Fastest'
+      : isBestNodes ? '💡 Efficient'
+      : '✓ Valid';
+
+    html += `<tr class="${rowClass}">
+      <td><span class="ct-algo" style="color:${meta.color}">
+        <span style="background:${meta.color};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px"></span>
+        ${meta.name}</span></td>
+      <td style="color:var(--t2);font-size:.7rem">${meta.cat}</td>
+      <td><span class="${v.found ? 'ct-found-yes':'ct-found-no'}">${v.found ? '✅ YES':'❌ NO'}</span></td>
+      <td>${v.found ? `<b>${v.path_length}</b>${isBestPath ? ' <span class="ct-badge best">BEST</span>':''}`:'—'}</td>
+      <td>${v.found ? `${v.nodes_explored}${isBestNodes ? ' <span class="ct-badge best">MIN</span>':''}`:'—'}</td>
+      <td>${v.found ? v.cost : '—'}</td>
+      <td>${v.found ? `${v.time_ms}ms${isBestTime ? ' <span class="ct-badge best">FAST</span>':''}` :'—'}</td>
+      <td style="font-size:.72rem;color:#a78bfa">${rating}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('compareTable').innerHTML = html;
+}
+
+function closeCompare() {
+  document.getElementById('compareModal').style.display = 'none';
+  playSound('click');
+}
+
+// Close modal on backdrop click
+document.getElementById('compareModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCompare();
+});
+
+// ═══════════════════════════════════════════════════
+//  BAYESIAN HEAT MAP
+// ═══════════════════════════════════════════════════
+async function toggleHeatmap() {
+  const btn = document.getElementById('heatmapBtn');
+  if (showHeatmap) {
+    showHeatmap = false;
+    btn.classList.remove('active');
+    btn.textContent = '🌡 HEAT MAP';
+    clearHeatmap();
+    return;
+  }
+  playSound('click');
+  btn.textContent = '🌡 Loading…';
+  try {
+    const allPieces = buildAllBoardPieces();
+    const resp = await fetch('/api/bayesian', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        grid: buildSolveGrid(),
+        goal: goalPos,
+        board_pieces: allPieces
+      })
+    });
+    heatmapData = await resp.json();
+    showHeatmap = true;
+    btn.classList.add('active');
+    btn.textContent = '🌡 HEAT MAP ON';
+    renderHeatmap();
+  } catch(e) {
+    btn.textContent = '🌡 HEAT MAP';
+    setStatus('❌ Heat map failed: ' + e.message, 'error');
+  }
+}
+
+function buildAllBoardPieces() {
+  // Returns ALL pieces including start/goal (needed for bayesian)
+  return Object.entries(boardPieces).map(([key, bp]) => {
+    const [r, c] = key.split(',').map(Number);
+    return [r, c, bp.color];
+  });
+}
+
+function renderHeatmap() {
+  if (!heatmapData || !showHeatmap) return;
+  const { heatmap } = heatmapData;
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const cell = document.getElementById(`c-${r}-${c}`);
+      if (!cell) continue;
+      const val = heatmap[r] && heatmap[r][c];
+      if (val === -1 || val === undefined) continue;  // wall
+      cell.classList.remove('heatmap-low','heatmap-med','heatmap-high');
+      if (val > 0.65)       cell.classList.add('heatmap-high');
+      else if (val > 0.30)  cell.classList.add('heatmap-med');
+      else if (val > 0.05)  cell.classList.add('heatmap-low');
+      cell.setAttribute('data-danger', (val*100).toFixed(0)+'%');
+    }
+  }
+}
+
+function clearHeatmap() {
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const cell = document.getElementById(`c-${r}-${c}`);
+    if (cell) {
+      cell.classList.remove('heatmap-low','heatmap-med','heatmap-high');
+      cell.removeAttribute('data-danger');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPLORATION OVERLAY
+// ═══════════════════════════════════════════════════
+function toggleExploration() {
+  showExploration = !showExploration;
+  const btn = document.getElementById('exploreBtn');
+  btn.classList.toggle('active', showExploration);
+  btn.textContent = showExploration ? '🔍 EXPLORE ON' : '🔍 EXPLORATION';
+  playSound('click');
+  if (showExploration && lastExplored.length > 0) {
+    renderExploration();
+  } else {
+    clearExploration();
+  }
+}
+
+function renderExploration() {
+  if (!lastExplored.length) return;
+  const total = lastExplored.length;
+  lastExplored.forEach(([r, c], idx) => {
+    if (isSpecial(r, c)) return;
+    const cell = document.getElementById(`c-${r}-${c}`);
+    if (!cell) return;
+    // Color goes from deep blue (early) → teal (mid) → green (late)
+    const t = idx / Math.max(total - 1, 1);
+    const r_val = Math.round(30 + t * 22);
+    const g_val = Math.round(80 + t * 131);
+    const b_val = Math.round(246 - t * 93);
+    cell.classList.add('explored-cell');
+    cell.style.setProperty('--explore-color', `rgba(${r_val},${g_val},${b_val},0.28)`);
+  });
+}
+
+function clearExploration() {
+  document.querySelectorAll('.explored-cell').forEach(cell => {
+    cell.classList.remove('explored-cell');
+    cell.style.removeProperty('--explore-color');
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  PUZZLE PRESETS
+// ═══════════════════════════════════════════════════
+const PRESETS = {
+  knights_duel: {
+    name: "Knight's Duel",
+    desc: 'White Knight hunts Black Knight across open board.',
+    algo: 'astar',
+    setup: () => {
+      // Clear to empty N×N board (keep N=8)
+      N = 8;
+      grid = Array.from({length:N}, () => Array(N).fill(0));
+      boardPieces = {};
+      // Place white knight at e1 (7,4) and black knight at e8 (0,4)
+      boardPieces['7,1'] = {type:'knight', color:'white'};
+      boardPieces['0,6'] = {type:'knight', color:'black'};
+      // Some scattered pieces
+      [[2,2,'rook','black'],[5,5,'rook','white']].forEach(([r,c,t,col]) =>
+        boardPieces[`${r},${c}`] = {type:t, color:col});
+      startPos = [7,1]; goalPos = [0,6];
+      selectedPiece = 'knight';
+    }
+  },
+  kings_gauntlet: {
+    name: "King's Gauntlet",
+    desc: 'White King must cross heavily defended territory.',
+    algo: 'alphabeta',
+    setup: () => {
+      N = 8;
+      grid = Array.from({length:N}, () => Array(N).fill(0));
+      boardPieces = {};
+      // White King at bottom
+      boardPieces['7,4'] = {type:'king', color:'white'};
+      // Black pieces blocking the way
+      [[1,2,'rook','black'],[1,5,'rook','black'],[2,0,'bishop','black'],
+       [2,7,'bishop','black'],[3,3,'queen','black']].forEach(([r,c,t,col]) =>
+        boardPieces[`${r},${c}`] = {type:t, color:col});
+      // Black king at top
+      boardPieces['0,4'] = {type:'king', color:'black'};
+      // Some walls
+      [[4,1],[4,3],[4,5],[4,6]].forEach(([r,c]) => grid[r][c] = 1);
+      startPos = [7,4]; goalPos = [0,4];
+      selectedPiece = 'king';
+    }
+  },
+  rooks_race: {
+    name: "Rook's Race",
+    desc: 'White Rook races across the board via open files.',
+    algo: 'bfs',
+    setup: () => {
+      N = 8;
+      grid = Array.from({length:N}, () => Array(N).fill(0));
+      boardPieces = {};
+      // White rook at a1, black rook at h8
+      boardPieces['7,0'] = {type:'rook', color:'white'};
+      boardPieces['0,7'] = {type:'rook', color:'black'};
+      // Blocking pawns
+      for(let c=2;c<7;c++) boardPieces[`3,${c}`] = {type:'pawn', color:'black'};
+      startPos = [7,0]; goalPos = [0,7];
+      selectedPiece = 'rook';
+    }
+  },
+  bishops_cross: {
+    name: "Bishop's Cross",
+    desc: 'Bishop navigates a diagonal maze to capture the enemy.',
+    algo: 'dfs',
+    setup: () => {
+      N = 8;
+      grid = Array.from({length:N}, () => Array(N).fill(0));
+      boardPieces = {};
+      boardPieces['7,0'] = {type:'bishop', color:'white'};
+      boardPieces['0,6'] = {type:'bishop', color:'black'};
+      // Wall corridors forcing diagonal paths
+      [[2,1],[2,3],[2,5],[4,2],[4,4],[4,6],[3,0],[3,7]].forEach(([r,c]) => grid[r][c] = 1);
+      [[1,1,'knight','black'],[5,4,'knight','black']].forEach(([r,c,t,col]) =>
+        boardPieces[`${r},${c}`] = {type:t, color:col});
+      startPos = [7,0]; goalPos = [0,6];
+      selectedPiece = 'bishop';
+    }
+  },
+  pawn_march: {
+    name: "Pawn's March",
+    desc: 'Pawn advances through enemy lines to promote.',
+    algo: 'csp',
+    setup: () => {
+      N = 8;
+      grid = Array.from({length:N}, () => Array(N).fill(0));
+      boardPieces = {};
+      boardPieces['6,3'] = {type:'pawn', color:'white'};
+      // Black pieces in path
+      [[4,3,'pawn','black'],[2,4,'pawn','black'],[3,2,'knight','black'],
+       [1,3,'rook','black'],[0,3,'queen','black']].forEach(([r,c,t,col]) =>
+        boardPieces[`${r},${c}`] = {type:t, color:col});
+      // Some walls on sides
+      [[3,4],[4,4],[5,4]].forEach(([r,c]) => grid[r][c] = 1);
+      startPos = [6,3]; goalPos = [0,3];
+      selectedPiece = 'pawn';
+    }
+  }
+};
+
+function loadPreset(id) {
+  if (isRunning) return;
+  const preset = PRESETS[id];
+  if (!preset) return;
+  stopSolve();
+  clearHeatmap();
+  clearExploration();
+  lastExplored = [];
+  showHeatmap = false;
+  showExploration = false;
+  document.getElementById('heatmapBtn').classList.remove('active');
+  document.getElementById('heatmapBtn').textContent = '🌡 HEAT MAP';
+  document.getElementById('exploreBtn').classList.remove('active');
+  document.getElementById('exploreBtn').textContent = '🔍 EXPLORATION';
+
+  preset.setup();
+  // gridSizeDisplay removed — N is always 8
+  selectAlgo(preset.algo);
+  renderBoard();
+  updateStats();
+  updateSelectedPiecesDisplay();
+  refreshCell(startPos[0], startPos[1]);
+  refreshCell(goalPos[0], goalPos[1]);
+  setMode('wall');
+  setStatus(`🧩 Preset loaded: ${preset.name} — ${preset.desc}`, 'running');
+  playSound('click');
+  clearDesc();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GAME MODE (always treat both sides as AI-driven solve)
+// ═══════════════════════════════════════════════════════════════
+let gameModP1 = 'human', gameModP2 = 'human';
 </script>
 {% endblock %}
+

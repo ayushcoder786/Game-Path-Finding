@@ -1,0 +1,1674 @@
+{% extends 'base.html' %}
+{% block title %}Chess AI Engine — Live Chess Game{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ═══ CHESS GAME PAGE ═══════════════════════════════════════════ */
+.chess-page { min-height:100vh; display:flex; flex-direction:column; background:var(--bg); }
+
+/* Layout: 3 columns */
+.chess-layout {
+  display:grid;
+  grid-template-columns:280px 1fr 240px;
+  flex:1; overflow:hidden; height:calc(100vh - 52px);
+}
+
+/* ── LEFT PANEL ── */
+.chess-left { background:var(--panel); border-right:1px solid var(--b1); overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:12px; }
+
+.ctrl-card { background:var(--card); border:1px solid var(--b1); border-radius:12px; padding:16px; }
+.ctrl-card-title { font-family:var(--ff-u); font-size:.8rem; letter-spacing:.18em; color:var(--accent-l); margin-bottom:14px; font-weight:700; display:flex; align-items:center; gap:8px; }
+
+/* Player rows */
+.player-cfg-row { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.player-dot-sm { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.p1-dot { background:#a78bfa; box-shadow:0 0 6px rgba(167,139,250,.6); }
+.p2-dot { background:#fbbf24; box-shadow:0 0 6px rgba(251,191,36,.6); }
+.player-label { font-family:var(--ff-u); font-size:.72rem; color:var(--t2); flex:1; letter-spacing:.04em; }
+.type-toggle { display:flex; gap:2px; background:var(--bg); border-radius:6px; padding:2px; }
+.type-btn { background:transparent; border:none; color:var(--t2); padding:4px 10px; border-radius:4px; font-family:var(--ff-u); font-size:.68rem; letter-spacing:.06em; cursor:pointer; transition:all .2s; }
+.type-btn.active { background:var(--accent); color:#fff; box-shadow:0 2px 8px rgba(59,130,246,.4); }
+
+/* Algorithm & difficulty selects */
+.cfg-label { font-family:var(--ff-u); font-size:.62rem; letter-spacing:.14em; color:var(--t3); margin-bottom:5px; margin-top:10px; display:block; }
+.cfg-select { width:100%; background:var(--bg); border:1px solid var(--b1); color:var(--t1); padding:8px 10px; border-radius:6px; font-family:var(--ff-u); font-size:.78rem; cursor:pointer; outline:none; transition:border-color .2s; }
+.cfg-select:focus { border-color:var(--b2); }
+
+/* Timer */
+.timer-wrap { display:flex; align-items:center; justify-content:space-between; margin-top:12px; }
+.timer-lbl { font-family:var(--ff-u); font-size:.62rem; letter-spacing:.12em; color:var(--t3); }
+.timer-display { font-family:'Courier New',monospace; font-size:1.4rem; font-weight:700; color:var(--accent-l); letter-spacing:.1em; text-shadow:0 0 12px rgba(96,165,250,.4); }
+
+/* Control buttons */
+.cg-btn { width:100%; padding:10px; border:none; border-radius:8px; font-family:var(--ff-u); font-weight:700; font-size:.82rem; letter-spacing:.1em; cursor:pointer; transition:all .2s; margin-top:8px; }
+.cg-btn:disabled { opacity:.4; cursor:not-allowed; }
+.cg-start { background:linear-gradient(135deg,#a78bfa,#6d28d9); color:#fff; box-shadow:0 4px 16px rgba(167,139,250,.35); }
+.cg-start:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 6px 20px rgba(167,139,250,.5); }
+.cg-stop { background:rgba(239,68,68,.2); color:#f87171; border:1px solid rgba(248,113,113,.3); }
+.cg-stop:hover:not(:disabled) { background:rgba(239,68,68,.3); }
+.cg-secondary { background:var(--bg); border:1px solid var(--b1); color:var(--t2); font-size:.72rem; }
+.cg-secondary:hover:not(:disabled) { border-color:var(--b2); color:var(--t1); }
+.btn-pair { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+
+/* Captured pieces */
+.captured-row { display:flex; flex-wrap:wrap; gap:3px; min-height:24px; }
+.captured-sym { font-size:1rem; opacity:.85; }
+
+/* ── CENTER ── */
+.chess-center { display:flex; flex-direction:column; align-items:center; padding:14px 10px; overflow-y:auto; }
+
+/* ── PATH TRACKER ── */
+.path-tracker {
+  width:100%; max-width:560px; margin-top:14px;
+  background:var(--card); border:1px solid var(--b1); border-radius:12px;
+  padding:14px 18px;
+}
+.path-tracker-title {
+  font-family:var(--ff-u); font-size:.72rem; letter-spacing:.16em;
+  color:var(--accent-l); font-weight:700; margin-bottom:10px;
+  display:flex; align-items:center; gap:8px;
+}
+.path-nodes {
+  display:flex; flex-wrap:wrap; align-items:center; gap:4px 2px;
+  font-family:'Courier New',monospace; font-size:.72rem; min-height:28px;
+  max-height:110px; overflow-y:auto;
+}
+.path-node {
+  background:rgba(96,165,250,.12); border:1px solid rgba(96,165,250,.25);
+  border-radius:4px; padding:2px 6px; color:#93c5fd;
+  transition:all .2s;
+}
+.path-node.white-node { color:#c4b5fd; background:rgba(167,139,250,.12); border-color:rgba(167,139,250,.3); }
+.path-node.black-node { color:#fcd34d; background:rgba(251,191,36,.1); border-color:rgba(251,191,36,.25); }
+.path-node.current-node {
+  color:#fff; background:var(--accent); border-color:var(--accent);
+  box-shadow:0 0 8px rgba(59,130,246,.5);
+  animation:nodeGlow .7s ease-in-out infinite alternate;
+}
+@keyframes nodeGlow { from{box-shadow:0 0 6px rgba(59,130,246,.4)} to{box-shadow:0 0 14px rgba(59,130,246,.8)} }
+.path-arrow { color:var(--t3); font-size:.7rem; line-height:1.6; }
+.path-empty { color:var(--t3); font-style:italic; font-size:.7rem; }
+.path-stats {
+  display:flex; gap:16px; margin-top:10px; padding-top:10px;
+  border-top:1px solid var(--b1);
+}
+.path-stat { display:flex; flex-direction:column; gap:2px; }
+.path-stat-label { font-family:var(--ff-u); font-size:.58rem; letter-spacing:.1em; color:var(--t3); }
+.path-stat-value { font-family:var(--ff-d); font-size:.95rem; font-weight:700; color:var(--t1); }
+.path-stat-value.white-val { color:#c4b5fd; }
+.path-stat-value.black-val { color:#fcd34d; }
+
+/* Score bar */
+.score-bar { display:flex; align-items:center; justify-content:space-between; width:100%; max-width:560px; background:var(--bg2); border:1px solid var(--b1); border-radius:10px; padding:10px 18px; margin-bottom:10px; }
+.score-side { display:flex; align-items:center; gap:8px; }
+.score-name { font-family:var(--ff-u); font-size:.72rem; color:var(--t2); letter-spacing:.06em; }
+.score-pts { font-family:var(--ff-d); font-size:1.1rem; font-weight:700; min-width:50px; text-align:center; }
+.p1-pts { color:#a78bfa; }
+.p2-pts { color:#fbbf24; }
+.score-vs { font-family:var(--ff-u); font-size:.72rem; color:var(--t3); letter-spacing:.1em; }
+.turn-indicator { display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--b1); border-radius:6px; padding:5px 12px; font-family:var(--ff-u); font-size:.72rem; color:var(--t2); letter-spacing:.08em; }
+.turn-dot { width:8px; height:8px; border-radius:50%; }
+
+/* Status */
+.chess-status { font-family:var(--ff-u); font-size:.8rem; color:var(--t2); letter-spacing:.08em; margin-bottom:8px; padding:8px 14px; background:var(--card); border:1px solid var(--b1); border-radius:6px; width:100%; max-width:560px; text-align:center; transition:all .3s; }
+.status-check { color:#f87171; border-color:rgba(248,113,113,.4); background:rgba(248,113,113,.08); }
+.status-ok { color:#4ade80; border-color:rgba(74,222,128,.3); }
+.status-ai { color:var(--accent-l); border-color:var(--b2); }
+
+/* Chess Board */
+.cb-outer { display:flex; flex-direction:column; align-items:flex-start; }
+.cb-col-labels { display:grid; grid-template-columns:repeat(8,1fr); margin-left:22px; width:calc(var(--cell)*8); }
+.cb-row-wrap { display:flex; gap:3px; }
+.cb-row-labels { display:flex; flex-direction:column; width:20px; }
+.cb-lbl { display:flex; align-items:center; justify-content:center; font-family:var(--ff-u); font-size:.6rem; color:var(--t3); }
+.cb-board { display:grid; grid-template-columns:repeat(8,1fr); border:2px solid var(--b2); border-radius:4px; overflow:hidden; background:var(--card); box-shadow:0 0 40px rgba(59,130,246,.1), 0 4px 24px rgba(0,0,0,.5); }
+
+.chess-sq { position:relative; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .1s; user-select:none; }
+.chess-sq.light { background:#f0d9b5; }
+.chess-sq.dark  { background:#b58863; }
+.chess-sq.light .sq-inner { color:#1a1007; }
+.chess-sq.dark  .sq-inner { color:#f0d9b5; }
+.chess-sq:hover { filter:brightness(1.12); }
+
+/* Selection & highlights */
+.chess-sq.selected { background:#f6f669 !important; box-shadow:inset 0 0 0 3px rgba(200,190,50,.8); }
+.chess-sq.legal-move::after { content:''; position:absolute; width:32%; height:32%; border-radius:50%; background:rgba(0,0,0,.22); pointer-events:none; z-index:2; }
+.chess-sq.legal-capture { background:rgba(200,40,40,.35) !important; }
+.chess-sq.legal-capture::after { content:''; position:absolute; inset:2px; border-radius:3px; border:3px solid rgba(200,40,40,.7); pointer-events:none; z-index:2; }
+.chess-sq.king-check { background:#ff4444 !important; animation:checkPulse .6s ease-in-out infinite alternate; }
+@keyframes checkPulse { from{background:#ff4444} to{background:#ff8888} }
+.chess-sq.last-from { background:rgba(246,246,130,.4) !important; }
+.chess-sq.last-to   { background:rgba(246,246,130,.55) !important; }
+.chess-sq.hint-sq   { outline:3px solid #22d3ee !important; outline-offset:-3px; z-index:3; }
+
+.sq-inner { font-size:2rem; line-height:1; z-index:1; transition:transform .1s; pointer-events:none; }
+.chess-sq:hover .sq-inner { transform:scale(1.08); }
+
+/* ── RIGHT PANEL ── */
+.chess-right { background:var(--panel); border-left:1px solid var(--b1); overflow-y:auto; padding:14px; }
+.move-list { display:flex; flex-direction:column; gap:3px; max-height:calc(100vh - 120px); overflow-y:auto; }
+.move-entry { display:grid; grid-template-columns:28px 1fr 1fr; gap:4px; align-items:center; font-family:'Courier New',monospace; font-size:.75rem; }
+.move-num { color:var(--t3); font-size:.65rem; }
+.move-white { color:var(--t1); padding:3px 6px; border-radius:3px; }
+.move-black { color:var(--t2); padding:3px 6px; border-radius:3px; }
+.move-white:hover, .move-black:hover { background:var(--hover); }
+.move-white.active-move { background:rgba(167,139,250,.2); color:#a78bfa; }
+.move-black.active-move { background:rgba(251,191,36,.15); color:#fbbf24; }
+
+/* ═══ END GAME OVERLAY ═══════════════════════════════════════════ */
+.end-overlay {
+  position:fixed; inset:0; background:rgba(6,13,26,.88); backdrop-filter:blur(14px);
+  z-index:2000; display:flex; align-items:center; justify-content:center;
+  animation:fadeIn .35s ease;
+}
+.end-card {
+  background:linear-gradient(145deg,#16213e,#0d1b2a);
+  border:1px solid rgba(167,139,250,.35);
+  border-radius:20px; padding:44px 48px; text-align:center; max-width:480px; width:90%;
+  box-shadow:0 0 80px rgba(167,139,250,.18), 0 24px 60px rgba(0,0,0,.7);
+  animation:slideUp .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes slideUp { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+.end-trophy { font-size:4rem; margin-bottom:14px; filter:drop-shadow(0 0 20px #fbbf24); animation:trophyFloat 2s ease-in-out infinite; }
+@keyframes trophyFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+.end-winner { font-family:var(--ff-d); font-size:2rem; font-weight:900; letter-spacing:.06em; margin-bottom:8px; background:linear-gradient(135deg,#a78bfa,#fbbf24); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.end-subtitle { font-family:var(--ff-u); font-size:.78rem; color:var(--t2); letter-spacing:.08em; margin-bottom:28px; }
+
+.end-score-table { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; overflow:hidden; margin-bottom:28px; }
+.end-score-header { display:flex; justify-content:space-between; padding:10px 18px; border-bottom:1px solid rgba(255,255,255,.08); font-family:var(--ff-u); font-size:.62rem; letter-spacing:.16em; color:var(--t3); }
+.end-score-row { display:flex; justify-content:space-between; align-items:center; padding:12px 18px; border-bottom:1px solid rgba(255,255,255,.04); }
+.end-score-row:last-child { border-bottom:none; }
+.end-score-player { display:flex; align-items:center; gap:10px; font-family:var(--ff-u); font-size:.82rem; color:var(--t1); font-weight:600; }
+.end-score-dot { width:10px; height:10px; border-radius:50%; }
+.end-score-pts { font-family:var(--ff-d); font-size:1.1rem; font-weight:700; }
+.end-p1-pts { color:#a78bfa; }
+.end-p2-pts { color:#fbbf24; }
+
+.end-return-btn {
+  width:100%; padding:15px; background:linear-gradient(135deg,#7c3aed,#a78bfa);
+  border:none; border-radius:10px; color:#fff; font-family:var(--ff-u); font-weight:700;
+  font-size:.9rem; letter-spacing:.14em; cursor:pointer; transition:all .3s;
+  box-shadow:0 4px 20px rgba(124,58,237,.4);
+}
+.end-return-btn:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(124,58,237,.55); }
+
+/* ═══ PAWN PROMO DIALOG ═══════════════════════════════════════════ */
+.promo-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(8px);
+  z-index:1500; display:flex; align-items:center; justify-content:center;
+}
+.promo-card {
+  background:var(--panel); border:1px solid var(--b2); border-radius:14px;
+  padding:24px 32px; text-align:center;
+  box-shadow:0 16px 60px rgba(0,0,0,.6);
+  animation:slideUp .3s ease;
+}
+.promo-title { font-family:var(--ff-u); font-size:.8rem; letter-spacing:.15em; color:var(--accent-l); margin-bottom:16px; }
+.promo-pieces-row { display:flex; gap:10px; }
+.promo-piece-btn {
+  width:64px; height:64px; background:var(--card); border:2px solid var(--b1);
+  border-radius:8px; font-size:2.2rem; cursor:pointer; transition:all .2s;
+  display:flex; align-items:center; justify-content:center;
+}
+.promo-piece-btn:hover { border-color:var(--accent); background:var(--accent-glow); transform:scale(1.08); }
+
+/* AI thinking pulse */
+@keyframes aiPulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+.ai-thinking { animation:aiPulse .9s ease-in-out infinite; }
+
+/* A* path squares on chess board */
+.chess-sq.path-sq  { outline:3px solid #22d3ee !important; outline-offset:-3px; z-index:3;
+                     background:rgba(34,211,238,.18) !important; }
+.chess-sq.path-start { background:rgba(52,211,153,.35) !important; outline:3px solid #34d399 !important; }
+.chess-sq.path-end   { background:rgba(251,191,36,.35)  !important; outline:3px solid #fbbf24 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chess-page">
+
+  <!-- NAV -->
+  <header class="game-header">
+    <a href="/" class="game-logo"><span>♟</span> CHESS AI ENGINE</a>
+    <div class="game-header-title">LIVE CHESS GAME</div>
+    <a href="/game" class="results-btn">🔍 Pathfinding</a>
+  </header>
+
+  <div class="chess-layout">
+
+    <!-- ══ LEFT: Controls ══ -->
+    <aside class="chess-left">
+
+      <div class="ctrl-card">
+        <div class="ctrl-card-title">⚙ Controls</div>
+
+        <!-- Player 1 -->
+        <div class="player-cfg-row">
+          <div class="player-dot-sm p1-dot"></div>
+          <span class="player-label">Player 1 (White)</span>
+          <div class="type-toggle">
+            <button class="type-btn active" id="p1Human" onclick="setType(1,'human')">Human</button>
+            <button class="type-btn"        id="p1AI"    onclick="setType(1,'ai')">AI</button>
+          </div>
+        </div>
+
+        <!-- Player 2 -->
+        <div class="player-cfg-row">
+          <div class="player-dot-sm p2-dot"></div>
+          <span class="player-label">Player 2 (Black)</span>
+          <div class="type-toggle">
+            <button class="type-btn active" id="p2Human" onclick="setType(2,'human')">Human</button>
+            <button class="type-btn"        id="p2AI"    onclick="setType(2,'ai')">AI</button>
+          </div>
+        </div>
+
+        <label class="cfg-label">ALGORITHM SELECTOR</label>
+        <select id="algoSelect" class="cfg-select">
+          <option value="alphabeta">Alpha-Beta (Best)</option>
+          <option value="minimax">Minimax</option>
+          <option value="greedy">Greedy (Fast)</option>
+          <option value="random">Random</option>
+        </select>
+
+        <label class="cfg-label">AI DIFFICULTY</label>
+        <select id="diffSelect" class="cfg-select">
+          <option value="easy">Easy (Depth 2)</option>
+          <option value="medium" selected>Medium (Depth 4)</option>
+          <option value="hard">Hard (Depth 6 + α-β)</option>
+        </select>
+
+        <div class="timer-wrap" style="margin-top:14px">
+          <span class="timer-lbl">⏱ MATCH TIMER</span>
+          <div class="timer-display" id="timerDisplay">00:00</div>
+        </div>
+
+        <button class="cg-btn cg-start" id="startBtn" onclick="startGame()">▶ START</button>
+        <button class="cg-btn cg-stop"  id="stopBtn"  onclick="stopGame()" disabled>■ Stop</button>
+        <div class="btn-pair" style="margin-top:6px">
+          <button class="cg-btn cg-secondary" onclick="getHint()" id="hintBtn" disabled>💡 Hint</button>
+          <button class="cg-btn cg-secondary" onclick="resetGame()">↺ Reset</button>
+        </div>
+      </div>
+
+      <!-- Captured Pieces -->
+      <div class="ctrl-card">
+        <div class="ctrl-card-title">⚔ Captured Pieces</div>
+        <div class="cfg-label" style="margin-top:0">White captured:</div>
+        <div id="whiteCaptured" class="captured-row"></div>
+        <div class="cfg-label">Black captured:</div>
+        <div id="blackCaptured" class="captured-row"></div>
+      </div>
+
+      <!-- ══ MINIMAX vs ALPHA-BETA COMPARISON ══ -->
+      <div class="ctrl-card">
+        <div class="ctrl-card-title">🔬 Minimax vs α-β Nodes</div>
+        <label class="cfg-label">SEARCH DEPTH</label>
+        <select id="cmpDepthSelect" class="cfg-select">
+          <option value="1">Depth 1</option>
+          <option value="2" selected>Depth 2</option>
+          <option value="3">Depth 3</option>
+        </select>
+        <button class="cg-btn cg-secondary" id="cmpBtn" onclick="runNodeComparison()" style="margin-top:10px;">
+          ▶ Compare Now
+        </button>
+        <div id="cmpResults" style="margin-top:10px;display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+            <div style="background:rgba(239,68,68,.08);border:1px solid rgba(248,113,113,.2);border-radius:6px;padding:8px;text-align:center;">
+              <div style="font-family:var(--ff-u);font-size:.55rem;letter-spacing:.12em;color:#f87171;margin-bottom:4px;">MINIMAX</div>
+              <div id="cmpMmNodes" style="font-family:var(--ff-d);font-size:1.1rem;font-weight:700;color:#f87171;">—</div>
+              <div style="font-family:var(--ff-u);font-size:.5rem;color:var(--t3);margin-top:2px;">nodes</div>
+              <div id="cmpMmTime" style="font-family:var(--ff-u);font-size:.55rem;color:var(--t3);margin-top:4px;">—ms</div>
+            </div>
+            <div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:6px;padding:8px;text-align:center;">
+              <div style="font-family:var(--ff-u);font-size:.55rem;letter-spacing:.12em;color:#34d399;margin-bottom:4px;">ALPHA-BETA</div>
+              <div id="cmpAbNodes" style="font-family:var(--ff-d);font-size:1.1rem;font-weight:700;color:#34d399;">—</div>
+              <div style="font-family:var(--ff-u);font-size:.5rem;color:var(--t3);margin-top:2px;">nodes</div>
+              <div id="cmpAbTime" style="font-family:var(--ff-u);font-size:.55rem;color:var(--t3);margin-top:4px;">—ms</div>
+            </div>
+          </div>
+          <div style="background:rgba(96,165,250,.08);border:1px solid var(--b1);border-radius:6px;padding:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);letter-spacing:.1em;">REDUCTION</span>
+              <span id="cmpReduction" style="font-family:var(--ff-d);font-size:.95rem;font-weight:700;color:var(--accent-l);">—%</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+              <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);letter-spacing:.1em;">PRUNED</span>
+              <span id="cmpPruned" style="font-family:var(--ff-d);font-size:.85rem;color:#a78bfa;">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+              <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);letter-spacing:.1em;">BEST MOVE</span>
+              <span id="cmpBestMove" style="font-family:Courier New,monospace;font-size:.65rem;color:#fcd34d;">—</span>
+            </div>
+          </div>
+        </div>
+        <div id="cmpLoading" style="display:none;font-family:var(--ff-u);font-size:.65rem;color:var(--t3);text-align:center;padding:8px;" class="ai-thinking">⏳ Running search…</div>
+      </div>
+
+      <!-- ══ A* PIECE PATHFINDING ══ -->
+      <div class="ctrl-card">
+        <div class="ctrl-card-title">🔍 A* Piece Pathfinding</div>
+        <label class="cfg-label">PIECE TYPE</label>
+        <select id="pathPiece" class="cfg-select">
+          <option value="knight">Knight ♞</option>
+          <option value="queen">Queen ♛</option>
+          <option value="rook">Rook ♜</option>
+          <option value="bishop">Bishop ♝</option>
+          <option value="king">King ♚</option>
+        </select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">
+          <div>
+            <label class="cfg-label" style="margin-top:0">FROM</label>
+            <select id="pathFrom" class="cfg-select"></select>
+          </div>
+          <div>
+            <label class="cfg-label" style="margin-top:0">TO</label>
+            <select id="pathTo" class="cfg-select"></select>
+          </div>
+        </div>
+        <label class="cfg-label" style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-top:8px;">
+          <input type="checkbox" id="pathAvoidThreats" style="accent-color:var(--accent);">
+          <span>Avoid threatened squares</span>
+        </label>
+        <button class="cg-btn cg-secondary" id="pathBtn" onclick="runPiecePath()" style="margin-top:8px;">
+          🔍 Find Path
+        </button>
+        <div id="pathResults" style="margin-top:10px;display:none;">
+          <div style="background:rgba(96,165,250,.06);border:1px solid var(--b1);border-radius:6px;padding:8px;">
+            <div style="font-family:var(--ff-u);font-size:.55rem;letter-spacing:.12em;color:var(--accent-l);margin-bottom:6px;">A* PATH RESULT</div>
+            <div id="pathSquares" style="font-family:Courier New,monospace;font-size:.7rem;color:#93c5fd;line-height:1.8;word-break:break-all;"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:8px;">
+              <div style="text-align:center;">
+                <div style="font-family:var(--ff-u);font-size:.5rem;color:var(--t3);">MOVES</div>
+                <div id="pathLength" style="font-family:var(--ff-d);font-size:.9rem;font-weight:700;color:var(--t1);">—</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:var(--ff-u);font-size:.5rem;color:var(--t3);">NODES</div>
+                <div id="pathNodes" style="font-family:var(--ff-d);font-size:.9rem;font-weight:700;color:#a78bfa;">—</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:var(--ff-u);font-size:.5rem;color:var(--t3);">TIME</div>
+                <div id="pathTime" style="font-family:var(--ff-d);font-size:.9rem;font-weight:700;color:#fcd34d;">—</div>
+              </div>
+            </div>
+            <div id="pathHeuristic" style="font-family:var(--ff-u);font-size:.5rem;color:var(--t3);margin-top:6px;line-height:1.5;"></div>
+          </div>
+        </div>
+        <div id="pathLoading" style="display:none;font-family:var(--ff-u);font-size:.65rem;color:var(--t3);text-align:center;padding:8px;" class="ai-thinking">⏳ Running A*…</div>
+        <button id="pathClearBtn" onclick="clearPathHighlights()" style="display:none;" class="cg-btn cg-secondary" style="font-size:.62rem;margin-top:6px;">✕ Clear Path</button>
+      </div>
+
+      <!-- ══ CSP ANALYSIS ══ -->
+      <div class="ctrl-card">
+        <div class="ctrl-card-title">🧩 CSP Move Analysis</div>
+        <label class="cfg-label">ANALYSE COLOR</label>
+        <select id="cspColor" class="cfg-select">
+          <option value="white">White</option>
+          <option value="black">Black</option>
+        </select>
+        <button class="cg-btn cg-secondary" id="cspBtn" onclick="runCSPAnalysis()" style="margin-top:8px;">
+          🧩 Analyse Position
+        </button>
+        <div id="cspResults" style="margin-top:10px;display:none;">
+          <!-- Pruning pipeline -->
+          <div style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.2);border-radius:6px;padding:8px;margin-bottom:8px;">
+            <div style="font-family:var(--ff-u);font-size:.55rem;letter-spacing:.12em;color:#a78bfa;margin-bottom:8px;">CONSTRAINT PRUNING PIPELINE</div>
+            <div id="cspPipeline" style="display:flex;flex-direction:column;gap:4px;"></div>
+            <div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--b1);display:flex;justify-content:space-between;">
+              <span style="font-family:var(--ff-u);font-size:.58rem;color:var(--t3);">TOTAL PRUNED</span>
+              <span id="cspTotalPruned" style="font-family:var(--ff-d);font-size:.9rem;font-weight:700;color:#f87171;">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:2px;">
+              <span style="font-family:var(--ff-u);font-size:.58rem;color:var(--t3);">PRUNING %</span>
+              <span id="cspPruningPct" style="font-family:var(--ff-d);font-size:.9rem;font-weight:700;color:#34d399;">—%</span>
+            </div>
+          </div>
+          <!-- MRV table -->
+          <div style="font-family:var(--ff-u);font-size:.55rem;letter-spacing:.12em;color:var(--accent-l);margin-bottom:4px;">MRV ORDER (fewest moves first)</div>
+          <div id="cspMRVTable" style="display:flex;flex-direction:column;gap:2px;max-height:140px;overflow-y:auto;"></div>
+        </div>
+        <div id="cspLoading" style="display:none;font-family:var(--ff-u);font-size:.65rem;color:var(--t3);text-align:center;padding:8px;" class="ai-thinking">⏳ Analysing…</div>
+      </div>
+
+    </aside>
+
+
+    <!-- ══ CENTER: Board ══ -->
+    <main class="chess-center">
+
+      <!-- Score bar -->
+      <div class="score-bar">
+        <div class="score-side">
+          <div class="player-dot-sm p1-dot"></div>
+          <span class="score-name">Player 1</span>
+          <span class="score-pts p1-pts" id="score1">0 pts</span>
+        </div>
+        <div class="turn-indicator">
+          <div class="turn-dot" id="turnDot" style="background:#a78bfa"></div>
+          <span id="turnText">White's Turn</span>
+        </div>
+        <div class="score-side">
+          <span class="score-pts p2-pts" id="score2">0 pts</span>
+          <span class="score-name">Player 2</span>
+          <div class="player-dot-sm p2-dot"></div>
+        </div>
+      </div>
+
+      <div class="chess-status" id="chessStatus">Set players and press START to begin</div>
+
+      <!-- Board with labels -->
+      <div class="cb-outer">
+        <div class="cb-col-labels" id="cbColLabels" style="--cell:64px"></div>
+        <div class="cb-row-wrap">
+          <div class="cb-row-labels" id="cbRowLabels"></div>
+          <div id="chessBoard" class="cb-board"></div>
+        </div>
+      </div>
+
+      <!-- ── PATH TRACKER ── -->
+      <div class="path-tracker">
+        <div class="path-tracker-title">
+          <span>📍 LIVE KING PATH TRACKER</span>
+          <span id="pathLengthBadge" style="background:var(--accent-glow);border:1px solid var(--b2);border-radius:20px;padding:2px 10px;font-size:.65rem;color:var(--accent-l);">0 moves</span>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:220px;">
+            <div style="font-family:var(--ff-u);font-size:.6rem;letter-spacing:.12em;color:#c4b5fd;margin-bottom:6px;">♔ WHITE KING PATH</div>
+            <div class="path-nodes" id="whiteKingPath"><span class="path-empty">No moves yet…</span></div>
+          </div>
+          <div style="flex:1;min-width:220px;">
+            <div style="font-family:var(--ff-u);font-size:.6rem;letter-spacing:.12em;color:#fcd34d;margin-bottom:6px;">♚ BLACK KING PATH</div>
+            <div class="path-nodes" id="blackKingPath"><span class="path-empty">No moves yet…</span></div>
+          </div>
+        </div>
+        <div class="path-stats">
+          <div class="path-stat">
+            <span class="path-stat-label">TOTAL MOVES</span>
+            <span class="path-stat-value" id="statTotalMoves">0</span>
+          </div>
+          <div class="path-stat">
+            <span class="path-stat-label">WHITE KING MOVES</span>
+            <span class="path-stat-value white-val" id="statWhiteKing">0</span>
+          </div>
+          <div class="path-stat">
+            <span class="path-stat-label">BLACK KING MOVES</span>
+            <span class="path-stat-value black-val" id="statBlackKing">0</span>
+          </div>
+          <div class="path-stat">
+            <span class="path-stat-label">LAST MOVE</span>
+            <span class="path-stat-value" id="statLastMove">—</span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ══ RIGHT: Move History + AI Panels ══ -->
+    <aside class="chess-right">
+      <div class="ctrl-card-title">📋 Move History</div>
+      <div class="move-list" id="moveHistoryList"></div>
+
+      <!-- ══ STATISTICS DASHBOARD ══ -->
+      <div style="margin-top:14px;">
+        <div class="ctrl-card-title" style="margin-bottom:8px;">📊 AI Statistics</div>
+        <div style="background:var(--card);border:1px solid var(--b1);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">NODES VISITED</span>
+            <span id="statNodes" style="font-family:var(--ff-d);font-size:.85rem;font-weight:700;color:var(--accent-l);">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">SEARCH DEPTH</span>
+            <span id="statDepth" style="font-family:var(--ff-d);font-size:.85rem;font-weight:700;color:#a78bfa;">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">EVAL SCORE</span>
+            <span id="statEval" style="font-family:var(--ff-d);font-size:.85rem;font-weight:700;color:#34d399;">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">AI THINK TIME</span>
+            <span id="statTime" style="font-family:var(--ff-d);font-size:.85rem;font-weight:700;color:#fbbf24;">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">BEST MOVE</span>
+            <span id="statBestMove" style="font-family:Courier New,monospace;font-size:.75rem;color:var(--t1);">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">BRANCHES PRUNED</span>
+            <span id="statPruned" style="font-family:var(--ff-d);font-size:.85rem;font-weight:700;color:#f87171;">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ MOVE RECOMMENDATION ══ -->
+      <div style="margin-top:12px;" id="recPanel" style="display:none;">
+        <div class="ctrl-card-title" style="margin-bottom:8px;">💡 Move Recommendation</div>
+        <div id="recCard" style="background:var(--card);border:1px solid rgba(96,165,250,.3);border-radius:10px;padding:12px;display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-family:var(--ff-u);font-size:.7rem;color:var(--accent-l);">BEST MOVE</span>
+            <span id="recBestMove" style="font-family:Courier New,monospace;font-size:.9rem;font-weight:700;color:#fcd34d;">—</span>
+          </div>
+          <div id="recReasons" style="display:flex;flex-direction:column;gap:4px;"></div>
+        </div>
+        <div id="recLoading" style="display:none;font-family:var(--ff-u);font-size:.62rem;color:var(--t3);text-align:center;padding:6px;" class="ai-thinking">💭 Analysing piece…</div>
+      </div>
+
+      <!-- ══ GAME ANALYSIS ══ -->
+      <div style="margin-top:12px;">
+        <div class="ctrl-card-title" style="margin-bottom:8px;">🔎 Game Analysis</div>
+        <div id="analysisCard" style="background:var(--card);border:1px solid var(--b1);border-radius:10px;padding:12px;display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">MOVE PLAYED</span>
+            <span id="anMovePlayed" style="font-family:Courier New,monospace;font-size:.75rem;color:var(--t1);">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">QUALITY</span>
+            <span id="anQuality" style="font-family:var(--ff-u);font-size:.75rem;font-weight:700;">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-family:var(--ff-u);font-size:.6rem;color:var(--t3);">EVAL CHANGE</span>
+            <span id="anDelta" style="font-family:var(--ff-d);font-size:.85rem;font-weight:700;">—</span>
+          </div>
+          <div style="border-top:1px solid var(--b1);padding-top:6px;margin-top:4px;">
+            <div style="font-family:var(--ff-u);font-size:.58rem;color:var(--t3);margin-bottom:4px;">BEST ALTERNATIVE</div>
+            <div id="anAltMove" style="font-family:Courier New,monospace;font-size:.72rem;color:#34d399;">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ EXPLAINABLE AI TRACE ══ -->
+      <div style="margin-top:12px;">
+        <div class="ctrl-card-title" style="margin-bottom:8px;">🧠 AI Reasoning Trace</div>
+        <div id="traceCard" style="background:var(--card);border:1px solid rgba(167,139,250,.25);border-radius:10px;padding:12px;display:none;">
+          <div id="traceList" style="display:flex;flex-direction:column;gap:5px;"></div>
+        </div>
+        <div id="traceEmpty" style="font-family:var(--ff-u);font-size:.62rem;color:var(--t3);text-align:center;padding:8px;">Make an AI move to see the reasoning trace</div>
+      </div>
+
+    </aside>
+
+  </div><!-- end chess-layout -->
+</div><!-- end chess-page -->
+
+<!-- ══ END GAME OVERLAY ══ -->
+<div id="endOverlay" class="end-overlay" style="display:none" onclick="this.style.display='none'">
+  <div class="end-card" onclick="event.stopPropagation()" style="max-width:560px;">
+    <div class="end-trophy">🏆</div>
+    <div class="end-winner" id="endWinner">Player 1 Wins!</div>
+    <div class="end-subtitle">The battle has ended and a victor has emerged.</div>
+    <div class="end-score-table">
+      <div class="end-score-header"><span>PLAYER</span><span>FINAL SCORE</span></div>
+      <div class="end-score-row">
+        <div class="end-score-player"><div class="end-score-dot p1-dot"></div>Player 1 (White)</div>
+        <span class="end-score-pts end-p1-pts" id="endScore1">0 pts</span>
+      </div>
+      <div class="end-score-row">
+        <div class="end-score-player"><div class="end-score-dot p2-dot"></div>Player 2 (Black)</div>
+        <span class="end-score-pts end-p2-pts" id="endScore2">0 pts</span>
+      </div>
+    </div>
+    <!-- Final Path Summary in overlay -->
+    <div style="margin-bottom:20px;text-align:left;">
+      <div style="font-family:var(--ff-u);font-size:.65rem;letter-spacing:.14em;color:var(--accent-l);margin-bottom:10px;">📍 FINAL KING PATHS</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div>
+          <div style="font-family:var(--ff-u);font-size:.58rem;color:#c4b5fd;margin-bottom:4px;">♔ WHITE KING</div>
+          <div id="endWhiteKingPath" style="font-family:Courier New,monospace;font-size:.68rem;color:#e2e8f0;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);border-radius:6px;padding:6px 10px;word-break:break-all;"></div>
+        </div>
+        <div>
+          <div style="font-family:var(--ff-u);font-size:.58rem;color:#fcd34d;margin-bottom:4px;">♚ BLACK KING</div>
+          <div id="endBlackKingPath" style="font-family:Courier New,monospace;font-size:.68rem;color:#e2e8f0;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:6px;padding:6px 10px;word-break:break-all;"></div>
+        </div>
+      </div>
+    </div>
+    <button class="end-return-btn" onclick="returnToHub()">🏠 RETURN TO GAMING HUB</button>
+  </div>
+</div>
+
+<!-- ══ PAWN PROMOTION DIALOG ══ -->
+<div id="promoOverlay" class="promo-overlay" style="display:none">
+  <div class="promo-card">
+    <div class="promo-title">CHOOSE PROMOTION PIECE</div>
+    <div class="promo-pieces-row" id="promoRow"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  CHESS ENGINE (Full Legal Move Generation + Check Detection)
+// ═══════════════════════════════════════════════════════════════════
+
+const WS = {king:'♔',queen:'♕',rook:'♖',bishop:'♗',knight:'♘',pawn:'♙'};
+const BS = {king:'♚',queen:'♛',rook:'♜',bishop:'♝',knight:'♞',pawn:'♟'};
+const PV = {pawn:10,knight:30,bishop:30,rook:50,queen:90,king:0}; // score values
+
+function sym(piece) {
+  return piece.color==='white' ? WS[piece.type] : BS[piece.type];
+}
+
+function cloneBoard(b) { return b.map(r => r.map(c => c ? {...c} : null)); }
+function inBounds(r,c) { return r>=0 && r<8 && c>=0 && c<8; }
+
+// Generate pseudo-legal moves for piece at (r,c)
+function rawMovesAt(board, r, c) {
+  const p = board[r][c];
+  if (!p) return [];
+  const {type:pt, color} = p;
+  const opp = color==='white' ? 'black' : 'white';
+  const moves = [];
+  const add = (tr,tc,sp=null) => moves.push({from:[r,c],to:[tr,tc],sp});
+  const canGo = (tr,tc) => inBounds(tr,tc) && board[tr][tc]?.color !== color;
+  const isEmpty = (tr,tc) => inBounds(tr,tc) && !board[tr][tc];
+  const isEnemy = (tr,tc) => inBounds(tr,tc) && board[tr][tc]?.color===opp;
+
+  if (pt==='pawn') {
+    const fwd = color==='white' ? -1 : 1;
+    const startRow = color==='white' ? 6 : 1;
+    const promoRow = color==='white' ? 0 : 7;
+    if (isEmpty(r+fwd,c)) {
+      if (r+fwd===promoRow) ['queen','rook','bishop','knight'].forEach(pp=>add(r+fwd,c,`promo:${pp}`));
+      else { add(r+fwd,c); if (r===startRow && isEmpty(r+2*fwd,c)) add(r+2*fwd,c,'double'); }
+    }
+    for (const dc of [-1,1]) {
+      if (isEnemy(r+fwd,c+dc)) {
+        if (r+fwd===promoRow) ['queen','rook','bishop','knight'].forEach(pp=>add(r+fwd,c+dc,`promo:${pp}`));
+        else add(r+fwd,c+dc);
+      }
+    }
+  } else if (pt==='knight') {
+    for (const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]])
+      if (canGo(r+dr,c+dc)) add(r+dr,c+dc);
+  } else if (pt==='king') {
+    for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++)
+      if ((dr||dc) && canGo(r+dr,c+dc)) add(r+dr,c+dc);
+    if (!p.moved) {
+      if (!board[r][5]&&!board[r][6]&&board[r][7]?.type==='rook'&&!board[r][7]?.moved) add(r,c+2,'castle_k');
+      if (!board[r][3]&&!board[r][2]&&!board[r][1]&&board[r][0]?.type==='rook'&&!board[r][0]?.moved) add(r,c-2,'castle_q');
+    }
+  } else {
+    const dirs = pt==='rook'?[[0,1],[0,-1],[1,0],[-1,0]]
+                :pt==='bishop'?[[1,1],[1,-1],[-1,1],[-1,-1]]
+                :[[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+    for (const [dr,dc] of dirs) {
+      let nr=r+dr,nc=c+dc;
+      while (inBounds(nr,nc)) { if (board[nr][nc]) { if (board[nr][nc].color===opp) add(nr,nc); break; } add(nr,nc); nr+=dr; nc+=dc; }
+    }
+  }
+  return moves;
+}
+
+// Apply a move to a cloned board, returns new board
+function applyMove(board, move) {
+  const b = cloneBoard(board);
+  const [fr,fc]=move.from, [tr,tc]=move.to, sp=move.sp;
+  const piece = {...b[fr][fc], moved:true};
+  b[fr][fc]=null; b[tr][tc]=piece;
+  if (sp==='enpassant') { const fwd=piece.color==='white'?-1:1; b[tr-fwd][tc]=null; }
+  else if (sp==='castle_k') { b[fr][5]={...b[fr][7],moved:true}; b[fr][7]=null; }
+  else if (sp==='castle_q') { b[fr][3]={...b[fr][0],moved:true}; b[fr][0]=null; }
+  else if (sp?.startsWith('promo:')) { b[tr][tc]={type:sp.split(':')[1],color:piece.color,moved:true}; }
+  return b;
+}
+
+function findKing(board, color) {
+  for (let r=0;r<8;r++) for (let c=0;c<8;c++)
+    if (board[r][c]?.type==='king'&&board[r][c]?.color===color) return [r,c];
+  return null;
+}
+
+function isAttacked(board, r, c, byColor) {
+  for (let pr=0;pr<8;pr++) for (let pc=0;pc<8;pc++)
+    if (board[pr][pc]?.color===byColor)
+      for (const m of rawMovesAt(board,pr,pc))
+        if (m.to[0]===r&&m.to[1]===c) return true;
+  return false;
+}
+
+function isInCheck(board, color) {
+  const k=findKing(board,color);
+  if (!k) return true;
+  return isAttacked(board,k[0],k[1],color==='white'?'black':'white');
+}
+
+// Returns all legal moves for a color (filtered for leaving king in check)
+function legalMovesFor(board, color, lastMv) {
+  const pseudo=[];
+  for (let r=0;r<8;r++) for (let c=0;c<8;c++)
+    if (board[r][c]?.color===color) pseudo.push(...rawMovesAt(board,r,c));
+
+  // Add en passant from lastMove
+  if (lastMv?.sp==='double') {
+    const [ltr,ltc]=lastMv.to, opp=lastMv.from ? board[ltr][ltc]?.color : null;
+    // Find friendly pawns adjacent
+    const fwd=color==='white'?-1:1;
+    for (const dc of [-1,1]) {
+      if (inBounds(ltr,ltc+dc-dc) && board[ltr][ltc-dc]?.type==='pawn' && board[ltr][ltc-dc]?.color===color) {
+        // handled by rawMovesAt with lastMv context below — skip (already done above)
+      }
+    }
+  }
+
+  // Also add en passant by checking pawns next to last-moved double-push pawn
+  const epMoves = [];
+  if (lastMv?.sp==='double') {
+    const [ltr,ltc]=lastMv.to;
+    const fwd=color==='white'?-1:1;
+    for (const dc of [-1,1]) {
+      const adjC=ltc+dc;
+      if (inBounds(ltr,adjC) && board[ltr][adjC]?.color===color && board[ltr][adjC]?.type==='pawn') {
+        // This pawn can capture en passant
+        if (!pseudo.some(m=>m.from[0]===ltr&&m.from[1]===adjC&&m.to[0]===ltr+fwd&&m.to[1]===ltc))
+          epMoves.push({from:[ltr,adjC],to:[ltr+fwd,ltc],sp:'enpassant'});
+      }
+    }
+  }
+
+  return [...pseudo,...epMoves].filter(move=>{
+    // Castling: can't castle through/into check
+    if (move.sp==='castle_k'||move.sp==='castle_q') {
+      const [,fc]=move.from;
+      const opp=color==='white'?'black':'white';
+      if (isAttacked(board,move.from[0],fc,opp)) return false; // can't castle in check
+      const midC=move.sp==='castle_k'?fc+1:fc-1;
+      if (isAttacked(board,move.from[0],midC,opp)) return false; // can't pass through check
+    }
+    const nb=applyMove(board,move);
+    return !isInCheck(nb,color);
+  });
+}
+
+function gameStatus(board, color, lastMv) {
+  const moves=legalMovesFor(board,color,lastMv);
+  if (!moves.length) return isInCheck(board,color)?'checkmate':'stalemate';
+  if (isInCheck(board,color)) return 'check';
+  // Insufficient material
+  const pieces=[];
+  for (let r=0;r<8;r++) for (let c=0;c<8;c++) if(board[r][c]) pieces.push(board[r][c].type);
+  if (pieces.length<=2||(pieces.length===3&&pieces.includes('knight'))||(pieces.length===3&&pieces.includes('bishop'))) return 'draw';
+  return 'playing';
+}
+
+// Move to algebraic notation
+function toAlg(board, move) {
+  const [fr,fc]=move.from,[tr,tc]=move.to;
+  const p=board[fr][fc];
+  const files='abcdefgh', ranks='87654321';
+  const fromSq=files[fc]+ranks[fr], toSq=files[tc]+ranks[tr];
+  const capture=board[tr][tc]?'x':'';
+  let notation='';
+  if (move.sp==='castle_k') notation='O-O';
+  else if (move.sp==='castle_q') notation='O-O-O';
+  else {
+    const pn=p.type==='pawn'?'':p.type[0].toUpperCase();
+    const promo=move.sp?.startsWith('promo:')?'='+move.sp[6].toUpperCase():'';
+    notation=pn+(p.type==='pawn'&&capture?files[fc]:'')+capture+toSq+promo;
+  }
+  return notation;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════════════════
+let board = null, currentColor = 'white', lastMove = null;
+let selected = null, highlightedMoves = [];
+let player1Type = 'human', player2Type = 'human';
+let isRunning = false, isAIThinking = false;
+let scores = {white:0, black:0};
+let capturedByWhite = [], capturedByBlack = [];
+let moveLog = [];          // [{white:'e4', black:'e5'}, ...]
+let pendingPromoMove = null;
+let timerSecs = 0, timerInterval = null;
+let hintMove = null;
+
+// Path tracking: record king positions after every move
+let whiteKingPath = [];  // array of algebraic squares e.g. ['e1','e2',...]
+let blackKingPath = [];
+let totalMoves = 0;
+
+const FILES = 'abcdefgh';
+const RANKS = '87654321';
+function squareName(r,c){ return FILES[c]+RANKS[r]; }
+function findKingSquare(board,color){
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++)
+    if(board[r][c]?.type==='king'&&board[r][c]?.color===color) return squareName(r,c);
+  return '?';
+}
+
+const CELL_SIZE = 58;
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT / RENDER
+// ═══════════════════════════════════════════════════════════════════
+function initBoard() {
+  board = Array.from({length:8},()=>Array(8).fill(null));
+  const back=['rook','knight','bishop','queen','king','bishop','knight','rook'];
+  for(let c=0;c<8;c++){
+    board[0][c]={type:back[c],color:'black',moved:false};
+    board[7][c]={type:back[c],color:'white',moved:false};
+    board[1][c]={type:'pawn',color:'black',moved:false};
+    board[6][c]={type:'pawn',color:'white',moved:false};
+  }
+  currentColor='white'; lastMove=null; selected=null; highlightedMoves=[];
+  scores={white:0,black:0}; capturedByWhite=[]; capturedByBlack=[];
+  moveLog=[]; hintMove=null;
+  // Reset paths — seed with starting king positions
+  whiteKingPath=['e1'];
+  blackKingPath=['e8'];
+  totalMoves=0;
+}
+
+function buildBoardUI() {
+  const el = document.getElementById('chessBoard');
+  el.style.gridTemplateColumns=`repeat(8,${CELL_SIZE}px)`;
+  el.style.gridTemplateRows=`repeat(8,${CELL_SIZE}px)`;
+  el.innerHTML='';
+
+  // Column labels
+  const colEl=document.getElementById('cbColLabels');
+  colEl.style.gridTemplateColumns=`repeat(8,${CELL_SIZE}px)`;
+  colEl.innerHTML='abcdefgh'.split('').map(l=>`<div class="cb-lbl">${l}</div>`).join('');
+
+  // Row labels
+  const rowEl=document.getElementById('cbRowLabels');
+  rowEl.style.gridTemplateRows=`repeat(8,${CELL_SIZE}px)`;
+  rowEl.innerHTML=[8,7,6,5,4,3,2,1].map(n=>`<div class="cb-lbl" style="height:${CELL_SIZE}px">${n}</div>`).join('');
+
+  for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+    const sq=document.createElement('div');
+    sq.className='chess-sq '+(((r+c)%2===0)?'light':'dark');
+    sq.id=`sq-${r}-${c}`;
+    sq.style.width=sq.style.height=CELL_SIZE+'px';
+    sq.onclick=()=>handleSquareClick(r,c);
+    const inner=document.createElement('div');
+    inner.className='sq-inner';
+    sq.appendChild(inner);
+    el.appendChild(sq);
+  }
+  renderBoard();
+}
+
+function renderBoard() {
+  const status=isRunning ? gameStatus(board,currentColor,lastMove) : null;
+  const kingInCheck = status==='check'||status==='checkmate' ? findKing(board,currentColor) : null;
+
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const sq=document.getElementById(`sq-${r}-${c}`);
+    if(!sq) continue;
+    const inner=sq.querySelector('.sq-inner');
+
+    // Reset classes
+    sq.classList.remove('selected','legal-move','legal-capture','king-check','last-from','last-to','hint-sq');
+
+    const p=board[r][c];
+    inner.textContent=p?sym(p):'';
+    inner.style.fontSize=p?.type==='pawn'?'1.8rem':'2rem';
+
+    // Last move highlight
+    if(lastMove){
+      const[lfr,lfc]=lastMove.from,[ltr,ltc]=lastMove.to;
+      if(r===lfr&&c===lfc) sq.classList.add('last-from');
+      if(r===ltr&&c===ltc) sq.classList.add('last-to');
+    }
+    // Check highlight
+    if(kingInCheck&&kingInCheck[0]===r&&kingInCheck[1]===c) sq.classList.add('king-check');
+    // Selection
+    if(selected&&selected[0]===r&&selected[1]===c) sq.classList.add('selected');
+    // Legal move dots/captures
+    if(highlightedMoves.some(m=>m.to[0]===r&&m.to[1]===c)){
+      sq.classList.add(p?'legal-capture':'legal-move');
+    }
+    // Hint
+    if(hintMove){
+      if(hintMove.from[0]===r&&hintMove.from[1]===c||hintMove.to[0]===r&&hintMove.to[1]===c)
+        sq.classList.add('hint-sq');
+    }
+  }
+  updateScoreUI();
+  updateCapturedUI();
+  updateTurnUI();
+}
+
+function updateScoreUI() {
+  document.getElementById('score1').textContent=scores.white+'pts';
+  document.getElementById('score2').textContent=scores.black+'pts';
+  document.getElementById('endScore1').textContent=scores.white+' pts';
+  document.getElementById('endScore2').textContent=scores.black+' pts';
+}
+
+function updateCapturedUI() {
+  document.getElementById('whiteCaptured').innerHTML=capturedByWhite.map(p=>`<span class="captured-sym">${BS[p]}</span>`).join('');
+  document.getElementById('blackCaptured').innerHTML=capturedByBlack.map(p=>`<span class="captured-sym">${WS[p]}</span>`).join('');
+}
+
+function updateTurnUI() {
+  const dot=document.getElementById('turnDot');
+  const txt=document.getElementById('turnText');
+  if(!isRunning){txt.textContent='Game not started'; dot.style.background='#475569'; return;}
+  const isW=currentColor==='white';
+  dot.style.background=isW?'#a78bfa':'#fbbf24';
+  const whoType=isW?player1Type:player2Type;
+  txt.textContent=(isW?'White':'Black')+"'s Turn"+(whoType==='ai'?' (AI)':'');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PLAYER INTERACTION
+// ═══════════════════════════════════════════════════════════════════
+function handleSquareClick(r,c) {
+  if(!isRunning||isAIThinking) return;
+  const currentIsHuman=(currentColor==='white'&&player1Type==='human')||(currentColor==='black'&&player2Type==='human');
+  if(!currentIsHuman) return;
+
+  hintMove=null; // clear hint on click
+
+  const p=board[r][c];
+
+  if(selected) {
+    // Check if clicking on a legal move target
+    const move=highlightedMoves.find(m=>m.to[0]===r&&m.to[1]===c);
+    if(move){
+      // Handle pawn promotion
+      if(move.sp?.startsWith('promo:')) {
+        // Show all promo options for this square
+        const promoMoves=highlightedMoves.filter(m=>m.to[0]===r&&m.to[1]===c&&m.sp?.startsWith('promo:'));
+        showPromoDialog(promoMoves, currentColor);
+        pendingPromoMove=promoMoves; // array of promotion moves
+        selected=null; highlightedMoves=[];
+        renderBoard();
+        return;
+      }
+      executeMove(move);
+      return;
+    }
+    // Clicking own piece = reselect
+    if(p&&p.color===currentColor){
+      selected=[r,c];
+      highlightedMoves=legalMovesFor(board,currentColor,lastMove).filter(m=>m.from[0]===r&&m.from[1]===c);
+      renderBoard(); return;
+    }
+    // Click empty/enemy non-target = deselect
+    selected=null; highlightedMoves=[]; renderBoard(); return;
+  }
+
+  // Nothing selected — select own piece
+  if(p&&p.color===currentColor){
+    selected=[r,c];
+    highlightedMoves=legalMovesFor(board,currentColor,lastMove).filter(m=>m.from[0]===r&&m.from[1]===c);
+    renderBoard();
+    // Show move recommendation for selected piece
+    fetchRecommendation(r, c);
+  }
+}
+
+function executeMove(move, aiDelay=false) {
+  // Snapshot which color is moving BEFORE we apply the move
+  const movingColor = currentColor;
+  const boardBefore = cloneBoard(board);  // snapshot for analysis
+
+  const capturedPiece=board[move.to[0]][move.to[1]];
+  // En passant capture
+  if(move.sp==='enpassant'){
+    const fwd=movingColor==='white'?-1:1;
+    const capPiece=board[move.to[0]-fwd][move.to[1]];
+    if(capPiece){
+      if(movingColor==='white'){capturedByWhite.push(capPiece.type);scores.white+=PV[capPiece.type];}
+      else{capturedByBlack.push(capPiece.type);scores.black+=PV[capPiece.type];}
+    }
+  } else if(capturedPiece){
+    if(movingColor==='white'){capturedByWhite.push(capturedPiece.type);scores.white+=PV[capturedPiece.type];}
+    else{capturedByBlack.push(capturedPiece.type);scores.black+=PV[capturedPiece.type];}
+  }
+
+  const alg=toAlg(board,move);
+  board=applyMove(board,move);
+  lastMove=move; selected=null; highlightedMoves=[];
+
+  // Analyse move quality after a short delay (let board update first)
+  setTimeout(() => analyzeLastMove(boardBefore, board, movingColor, alg), 80);
+  totalMoves++;
+
+  // Track king positions after this move
+  const wKingSq = findKingSquare(board,'white');
+  const bKingSq = findKingSquare(board,'black');
+  if(movingColor==='white'){
+    if(whiteKingPath[whiteKingPath.length-1]!==wKingSq) whiteKingPath.push(wKingSq);
+  } else {
+    if(blackKingPath[blackKingPath.length-1]!==bKingSq) blackKingPath.push(bKingSq);
+  }
+  renderPathTracker();
+
+  // Log move
+  if(movingColor==='white') moveLog.push({white:alg,black:null});
+  else if(moveLog.length>0) moveLog[moveLog.length-1].black=alg;
+  else moveLog.push({white:'...',black:alg});
+  renderMoveHistory();
+
+  // Switch turn
+  currentColor = movingColor==='white' ? 'black' : 'white';
+
+  renderBoard();
+  checkGameOver();
+
+  // Only schedule AI if the game is still running (checkGameOver may have stopped it)
+  if(isRunning) scheduleAIMove();
+}
+
+function checkGameOver() {
+  const st=gameStatus(board,currentColor,lastMove);
+  const isW=currentColor==='white';
+  const el=document.getElementById('chessStatus');
+
+  if(st==='checkmate'){
+    const winner=isW?'Player 2 (Black)':'Player 1 (White)';
+    el.textContent=`♚ CHECKMATE! ${winner} wins!`;
+    el.className='chess-status status-check';
+    stopGame();
+    setTimeout(()=>showEndOverlay(winner),1000);
+  } else if(st==='stalemate'||st==='draw'){
+    el.textContent='½ DRAW — Stalemate / Insufficient Material';
+    el.className='chess-status';
+    stopGame();
+    setTimeout(()=>showEndOverlay(null),1000);
+  } else if(st==='check'){
+    el.textContent=`⚠ ${isW?'White':'Black'} is in CHECK!`;
+    el.className='chess-status status-check';
+  } else {
+    const whoType=isW?player1Type:player2Type;
+    el.textContent=`${isW?'White':'Black'} to move${whoType==='ai'?' — AI thinking…':''}`;
+    el.className='chess-status'+(whoType==='ai'?' status-ai':'');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PAWN PROMOTION DIALOG
+// ═══════════════════════════════════════════════════════════════════
+function showPromoDialog(promoMoves, color) {
+  const overlay=document.getElementById('promoOverlay');
+  const row=document.getElementById('promoRow');
+  const syms=color==='white'?WS:BS;
+  const types=['queen','rook','bishop','knight'];
+  row.innerHTML='';
+  types.forEach(t=>{
+    const btn=document.createElement('button');
+    btn.className='promo-piece-btn';
+    btn.textContent=syms[t];
+    btn.title=t.charAt(0).toUpperCase()+t.slice(1);
+    btn.onclick=()=>{
+      overlay.style.display='none';
+      const move=promoMoves.find(m=>m.sp===`promo:${t}`);
+      if(move) executeMove(move);
+    };
+    row.appendChild(btn);
+  });
+  overlay.style.display='flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  AI MOVE
+// ═══════════════════════════════════════════════════════════════════
+function scheduleAIMove() {
+  const currentIsAI=(currentColor==='white'&&player1Type==='ai')||(currentColor==='black'&&player2Type==='ai');
+  if(!currentIsAI||!isRunning||isAIThinking) return;
+  // In AI vs AI games add a small delay so moves are visible; in Human vs AI shorter
+  const bothAI = player1Type==='ai'&&player2Type==='ai';
+  const delay = bothAI ? 700 : 300;
+  setTimeout(triggerAIMove, delay);
+}
+
+async function triggerAIMove() {
+  if(!isRunning||isAIThinking) return;
+  const currentIsAI=(currentColor==='white'&&player1Type==='ai')||(currentColor==='black'&&player2Type==='ai');
+  if(!currentIsAI) return;
+
+  isAIThinking=true;
+  const colorAtStart = currentColor;
+  const el=document.getElementById('chessStatus');
+  el.textContent=`🤖 AI (${colorAtStart}) is thinking…`;
+  el.className='chess-status status-ai ai-thinking';
+
+  const algo=document.getElementById('algoSelect').value;
+  const diff=document.getElementById('diffSelect').value;
+
+  try {
+    const resp=await fetch('/api/chess/ai_move',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({board, color:colorAtStart, algorithm:algo, difficulty:diff})
+    });
+    const data=await resp.json();
+    if(data.move && isRunning && currentColor===colorAtStart){
+      // ── Update Stats Dashboard ──────────────────────
+      updateAIStats(data);
+      // ── Show Reasoning Trace ────────────────────────
+      showReasoningTrace(data);
+      await new Promise(r=>setTimeout(r,100));
+      isAIThinking=false;
+      el.classList.remove('ai-thinking');
+      executeMove(data.move, true);
+      return;
+    } else if(data.game_over||!data.move) {
+      checkGameOver();
+    }
+  } catch(e){
+    console.error('AI move failed:',e);
+    if(isRunning && currentColor===colorAtStart){
+      const moves=legalMovesFor(board,currentColor,lastMove);
+      if(moves.length){
+        isAIThinking=false;
+        el.classList.remove('ai-thinking');
+        executeMove(moves[Math.floor(Math.random()*moves.length)]);
+        return;
+      }
+    }
+  }
+  isAIThinking=false;
+  el.classList.remove('ai-thinking');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  AI HELPERS: STATS, TRACE, RECOMMENDATION, ANALYSIS
+// ═══════════════════════════════════════════════════════════════════
+
+/** Deep-clone the board state. */
+function cloneBoard(b) {
+  return b.map(row => row.map(cell => cell ? {...cell} : null));
+}
+
+/** Update the right-panel Statistics Dashboard after an AI move. */
+function updateAIStats(data) {
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  set('statNodes',    (data.nodes_visited    || 0).toLocaleString());
+  set('statDepth',    data.depth    || '—');
+  const ev = data.post_eval_score ?? data.eval_score ?? 0;
+  const evColor = ev > 0 ? '#34d399' : ev < 0 ? '#f87171' : '#94a3b8';
+  const evEl = document.getElementById('statEval');
+  if(evEl){ evEl.textContent = (ev >= 0 ? '+' : '') + ev; evEl.style.color = evColor; }
+  set('statTime',     (data.time_ms || 0) + ' ms');
+  set('statBestMove', data.from_sq && data.to_sq ? (data.from_sq + '→' + data.to_sq).toUpperCase() : '—');
+  set('statPruned',   (data.branches_pruned || 0).toLocaleString());
+}
+
+/** Show step-by-step Reasoning Trace in the right panel. */
+function showReasoningTrace(data) {
+  const card  = document.getElementById('traceCard');
+  const empty = document.getElementById('traceEmpty');
+  const list  = document.getElementById('traceList');
+  if(!data.reasoning || !data.reasoning.length) return;
+
+  const icons = ['①','②','③','④','⑤','⑥','⑦'];
+  list.innerHTML = data.reasoning.map((step, i) => `
+    <div style="display:flex;gap:8px;align-items:flex-start;">
+      <span style="font-family:var(--ff-d);font-size:.75rem;color:var(--accent-l);flex-shrink:0;">${icons[i]||'●'}</span>
+      <span style="font-family:var(--ff-u);font-size:.58rem;color:var(--t2);line-height:1.5;">${step}</span>
+    </div>`).join('');
+
+  card.style.display  = 'block';
+  empty.style.display = 'none';
+}
+
+/** Fetch move recommendation when human selects a piece. */
+async function fetchRecommendation(r, c) {
+  const recCard    = document.getElementById('recCard');
+  const recLoading = document.getElementById('recLoading');
+  const recPanel   = document.getElementById('recPanel');
+  if(!recCard || !recLoading) return;
+
+  recPanel.style.display   = 'block';
+  recCard.style.display    = 'none';
+  recLoading.style.display = 'block';
+
+  try {
+    const resp = await fetch('/api/chess/recommend_move', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ board, color: currentColor, row: r, col: c })
+    });
+    const d = await resp.json();
+    recLoading.style.display = 'none';
+    if(!d.found || d.error) { recCard.style.display='none'; return; }
+
+    const bm = document.getElementById('recBestMove');
+    if(bm) bm.textContent = (d.from_sq + '→' + d.to_sq).toUpperCase();
+
+    const rr = document.getElementById('recReasons');
+    if(rr && d.reasons) {
+      rr.innerHTML = d.reasons.map(r => `
+        <div style="display:flex;gap:6px;align-items:flex-start;">
+          <span style="color:#34d399;font-size:.65rem;flex-shrink:0;">+</span>
+          <span style="font-family:var(--ff-u);font-size:.58rem;color:var(--t2);line-height:1.4;">${r}</span>
+        </div>`).join('');
+    }
+    recCard.style.display = 'block';
+  } catch(e) {
+    recLoading.style.display = 'none';
+  }
+}
+
+/** Analyse move quality after every move and display in Game Analysis panel. */
+async function analyzeLastMove(boardBefore, boardAfter, color, moveAlg) {
+  try {
+    const resp = await fetch('/api/chess/analyze_move', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        board_before: boardBefore,
+        board_after:  boardAfter,
+        color:        color,
+        move_alg:     moveAlg
+      })
+    });
+    const d = await resp.json();
+    if(d.error) return;
+
+    const card = document.getElementById('analysisCard');
+    if(!card) return;
+    card.style.display = 'block';
+
+    const set = (id, val, style) => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.textContent = val;
+      if(style) Object.assign(el.style, style);
+    };
+
+    set('anMovePlayed', moveAlg || '—');
+    set('anQuality',    (d.quality_icon ? d.quality_icon + ' ' : '') + d.quality, {color: d.quality_color});
+
+    const delta = d.eval_delta;
+    const dStr  = (delta >= 0 ? '+' : '') + delta;
+    set('anDelta', dStr, {color: delta >= 0 ? '#34d399' : '#f87171'});
+
+    const altEl = document.getElementById('anAltMove');
+    if(altEl) {
+      if(d.best_alt_move) {
+        altEl.textContent = d.best_alt_move.toUpperCase() +
+          (d.best_alt_eval !== null ? ` (${d.best_alt_eval >= 0 ? '+' : ''}${d.best_alt_eval})` : '');
+      } else {
+        altEl.textContent = 'No better move found';
+      }
+    }
+  } catch(e) { /* silent */ }
+}
+
+
+//  HINT
+// ═══════════════════════════════════════════════════════════════════
+async function getHint() {
+  if(!isRunning||isAIThinking) return;
+  const currentIsHuman=(currentColor==='white'&&player1Type==='human')||(currentColor==='black'&&player2Type==='human');
+  if(!currentIsHuman) return;
+  const btn=document.getElementById('hintBtn');
+  btn.textContent='💡 …'; btn.disabled=true;
+  try {
+    const resp=await fetch('/api/chess/ai_move',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({board, color:currentColor, algorithm:'alphabeta', difficulty:'medium'})
+    });
+    const data=await resp.json();
+    if(data.move){ hintMove=data.move; renderBoard(); }
+  } catch(e){}
+  btn.textContent='💡 Hint'; btn.disabled=false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MOVE HISTORY RENDER
+// ═══════════════════════════════════════════════════════════════════
+function renderMoveHistory() {
+  const el=document.getElementById('moveHistoryList');
+  el.innerHTML=moveLog.map((entry,i)=>`
+    <div class="move-entry">
+      <span class="move-num">${i+1}.</span>
+      <span class="move-white ${entry===moveLog[moveLog.length-1]&&currentColor==='black'?'active-move':''}">${entry.white||''}</span>
+      <span class="move-black ${entry===moveLog[moveLog.length-1]&&currentColor==='white'&&entry.black?'active-move':''}">${entry.black||''}</span>
+    </div>`).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PATH TRACKER RENDER
+// ═══════════════════════════════════════════════════════════════════
+function renderPathTracker() {
+  const files='abcdefgh', ranks='87654321';
+
+  function buildNodes(pathArr, colorClass) {
+    if(!pathArr||pathArr.length===0) return '<span class="path-empty">No moves yet…</span>';
+    return pathArr.map((sq,i)=>{
+      const isCurrent = i===pathArr.length-1;
+      let cls=`path-node ${colorClass}`;
+      if(isCurrent) cls+=' current-node';
+      return `<span class="${cls}">${sq}</span>${i<pathArr.length-1?'<span class="path-arrow">→</span>':''}`;
+    }).join('');
+  }
+
+  document.getElementById('whiteKingPath').innerHTML = buildNodes(whiteKingPath,'white-node');
+  document.getElementById('blackKingPath').innerHTML = buildNodes(blackKingPath,'black-node');
+
+  // Scroll path containers to end
+  ['whiteKingPath','blackKingPath'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.scrollLeft=el.scrollWidth;
+  });
+
+  document.getElementById('statTotalMoves').textContent = totalMoves;
+  document.getElementById('statWhiteKing').textContent = Math.max(0,whiteKingPath.length-1);
+  document.getElementById('statBlackKing').textContent = Math.max(0,blackKingPath.length-1);
+
+  const lastAlg = moveLog.length>0 ?
+    (moveLog[moveLog.length-1].black || moveLog[moveLog.length-1].white || '—') : '—';
+  document.getElementById('statLastMove').textContent = lastAlg;
+
+  // Update badge
+  document.getElementById('pathLengthBadge').textContent = totalMoves+' moves';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  GAME FLOW
+// ═══════════════════════════════════════════════════════════════════
+function startGame() {
+  initBoard();
+  buildBoardUI();
+  isRunning=true;
+  isAIThinking=false;
+  document.getElementById('startBtn').disabled=true;
+  document.getElementById('stopBtn').disabled=false;
+  document.getElementById('hintBtn').disabled=false;
+  startTimer();
+  renderMoveHistory();
+  renderPathTracker();  // reset tracker display
+  const el=document.getElementById('chessStatus');
+  el.textContent="White to move — click a piece to begin";
+  el.className='chess-status';
+  scheduleAIMove(); // in case both are AI from start
+}
+
+function stopGame() {
+  isRunning=false; isAIThinking=false;
+  clearInterval(timerInterval);
+  document.getElementById('startBtn').disabled=false;
+  document.getElementById('stopBtn').disabled=true;
+  document.getElementById('hintBtn').disabled=true;
+}
+
+function resetGame() {
+  stopGame();
+  initBoard();
+  buildBoardUI();
+  timerSecs=0; updateTimer();
+  renderMoveHistory();
+  document.getElementById('chessStatus').textContent='Set players and press START to begin';
+  document.getElementById('chessStatus').className='chess-status';
+  document.getElementById('endOverlay').style.display='none';
+}
+
+function setType(player, type) {
+  if(player===1){
+    player1Type=type;
+    document.getElementById('p1Human').classList.toggle('active',type==='human');
+    document.getElementById('p1AI').classList.toggle('active',type==='ai');
+  } else {
+    player2Type=type;
+    document.getElementById('p2Human').classList.toggle('active',type==='human');
+    document.getElementById('p2AI').classList.toggle('active',type==='ai');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════════════════════════════════
+function startTimer() {
+  timerSecs=0; clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{ timerSecs++; updateTimer(); },1000);
+}
+function updateTimer() {
+  const m=String(Math.floor(timerSecs/60)).padStart(2,'0');
+  const s=String(timerSecs%60).padStart(2,'0');
+  document.getElementById('timerDisplay').textContent=`${m}:${s}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  END GAME OVERLAY
+// ═══════════════════════════════════════════════════════════════════
+function showEndOverlay(winner) {
+  const el=document.getElementById('endOverlay');
+  const wEl=document.getElementById('endWinner');
+  if(!winner) {
+    wEl.textContent="It's a Draw!";
+    wEl.style.background='linear-gradient(135deg,#94a3b8,#64748b)';
+    wEl.style.webkitBackgroundClip='text';
+  } else {
+    wEl.textContent=winner+' Wins!';
+  }
+  document.getElementById('endScore1').textContent=scores.white+' pts';
+  document.getElementById('endScore2').textContent=scores.black+' pts';
+
+  // Show final king paths inside the overlay
+  document.getElementById('endWhiteKingPath').textContent =
+    whiteKingPath.length ? whiteKingPath.join(' → ') : 'Never moved';
+  document.getElementById('endBlackKingPath').textContent =
+    blackKingPath.length ? blackKingPath.join(' → ') : 'Never moved';
+
+  el.style.display='flex';
+}
+
+function returnToHub() {
+  document.getElementById('endOverlay').style.display='none';
+  window.location.href='/';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DEMO: MINIMAX vs ALPHA-BETA NODE COMPARISON
+// ═══════════════════════════════════════════════════════════════════
+async function runNodeComparison() {
+  const btn   = document.getElementById('cmpBtn');
+  const res   = document.getElementById('cmpResults');
+  const load  = document.getElementById('cmpLoading');
+  res.style.display  = 'none';
+  load.style.display = 'block';
+  btn.disabled = true;
+
+  const depth = parseInt(document.getElementById('cmpDepthSelect').value);
+
+  try {
+    const resp = await fetch('/api/chess/compare_nodes', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ board, color: currentColor, depth })
+    });
+    const d = await resp.json();
+    if (d.error) { alert('Error: ' + d.error); return; }
+
+    document.getElementById('cmpMmNodes').textContent = d.minimax_nodes.toLocaleString();
+    document.getElementById('cmpMmTime').textContent  = d.minimax_time + ' ms';
+    document.getElementById('cmpAbNodes').textContent = d.ab_nodes.toLocaleString();
+    document.getElementById('cmpAbTime').textContent  = d.ab_time + ' ms';
+    document.getElementById('cmpReduction').textContent = d.reduction_pct + '%';
+    document.getElementById('cmpPruned').textContent    = d.ab_pruned + ' branches pruned';
+    document.getElementById('cmpBestMove').textContent  = d.ab_best || '—';
+    res.style.display = 'block';
+  } catch(e) {
+    alert('Network error: ' + e);
+  } finally {
+    load.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DEMO: A* PIECE PATHFINDING
+// ═══════════════════════════════════════════════════════════════════
+let astarPathRC = [];   // currently highlighted path squares [[r,c],...]
+
+function clearPathHighlights() {
+  astarPathRC.forEach(([r,c]) => {
+    const sq = document.getElementById(`sq-${r}-${c}`);
+    if (sq) sq.classList.remove('path-sq','path-start','path-end');
+  });
+  astarPathRC = [];
+  document.getElementById('pathResults').style.display = 'none';
+  document.getElementById('pathClearBtn').style.display = 'none';
+}
+
+function highlightPath(pathRC) {
+  clearPathHighlights();
+  astarPathRC = pathRC;
+  pathRC.forEach(([r,c], i) => {
+    const sq = document.getElementById(`sq-${r}-${c}`);
+    if (!sq) return;
+    if (i === 0) sq.classList.add('path-start');
+    else if (i === pathRC.length - 1) sq.classList.add('path-end');
+    else sq.classList.add('path-sq');
+  });
+}
+
+async function runPiecePath() {
+  const btn  = document.getElementById('pathBtn');
+  const res  = document.getElementById('pathResults');
+  const load = document.getElementById('pathLoading');
+  res.style.display  = 'none';
+  load.style.display = 'block';
+  btn.disabled = true;
+  clearPathHighlights();
+
+  const piece          = document.getElementById('pathPiece').value;
+  const fromSq         = document.getElementById('pathFrom').value;
+  const toSq           = document.getElementById('pathTo').value;
+  const avoidThreats   = document.getElementById('pathAvoidThreats').checked;
+
+  try {
+    const resp = await fetch('/api/chess/piece_path', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        piece: piece,
+        from:  fromSq,
+        to:    toSq,
+        board: board,
+        avoid_threatened: avoidThreats
+      })
+    });
+    const d = await resp.json();
+
+    if (!d.found) {
+      document.getElementById('pathSquares').textContent = '✕ No path found';
+      document.getElementById('pathLength').textContent  = '0';
+      document.getElementById('pathNodes').textContent   = d.nodes_explored || 0;
+      document.getElementById('pathTime').textContent    = (d.time_ms || 0) + 'ms';
+      document.getElementById('pathHeuristic').textContent = d.heuristic || '';
+      res.style.display = 'block';
+      return;
+    }
+
+    // Show squares as arrow-chain
+    document.getElementById('pathSquares').innerHTML =
+      d.path.map((sq, i) =>
+        `<span style="color:${i===0?'#34d399':i===d.path.length-1?'#fbbf24':'#93c5fd'}">${sq.toUpperCase()}</span>${i<d.path.length-1?' <span style="color:var(--t3)">→</span> ':''}`
+      ).join('');
+
+    document.getElementById('pathLength').textContent  = d.path_length;
+    document.getElementById('pathNodes').textContent   = d.nodes_explored;
+    document.getElementById('pathTime').textContent    = d.time_ms + 'ms';
+    document.getElementById('pathHeuristic').textContent = '⚙ Heuristic: ' + d.heuristic;
+    res.style.display = 'block';
+
+    // Highlight on board
+    if (d.path_rc && d.path_rc.length) {
+      highlightPath(d.path_rc);
+      document.getElementById('pathClearBtn').style.display = 'block';
+    }
+  } catch(e) {
+    alert('Network error: ' + e);
+  } finally {
+    load.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DEMO: CSP ANALYSIS
+// ═══════════════════════════════════════════════════════════════════
+async function runCSPAnalysis() {
+  const btn  = document.getElementById('cspBtn');
+  const res  = document.getElementById('cspResults');
+  const load = document.getElementById('cspLoading');
+  res.style.display  = 'none';
+  load.style.display = 'block';
+  btn.disabled = true;
+
+  const color = document.getElementById('cspColor').value;
+
+  try {
+    const resp = await fetch('/api/chess/csp_analysis', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ board, color })
+    });
+    const d = await resp.json();
+    if (d.error) { alert('Error: ' + d.error); return; }
+
+    // Build constraint pipeline
+    const pipe = document.getElementById('cspPipeline');
+    const steps = [
+      { label: 'Raw candidates (all target squares)', count: d.raw_candidates,  color: '#f87171' },
+      { label: 'After C1+C2+C3 (movement rules)',     count: d.after_movement,  color: '#fbbf24' },
+      { label: 'After C4 — king-safe (legal moves)',  count: d.after_check,     color: '#34d399' },
+    ];
+    pipe.innerHTML = steps.map(s => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;">
+        <span style="font-family:var(--ff-u);font-size:.55rem;color:var(--t2);">${s.label}</span>
+        <span style="font-family:var(--ff-d);font-size:.85rem;font-weight:700;color:${s.color};">${s.count}</span>
+      </div>`).join('');
+
+    document.getElementById('cspTotalPruned').textContent = d.total_pruned;
+    document.getElementById('cspPruningPct').textContent  = d.pruning_pct + '%';
+
+    // MRV table
+    const tbl = document.getElementById('cspMRVTable');
+    const pieceSyms = {king:'♔',queen:'♕',rook:'♖',bishop:'♗',knight:'♘',pawn:'♙'};
+    const bSyms     = {king:'♚',queen:'♛',rook:'♜',bishop:'♝',knight:'♞',pawn:'♟'};
+    tbl.innerHTML = d.mrv_order.map((p, i) => {
+      const sym = p.color==='white' ? (pieceSyms[p.piece]||'?') : (bSyms[p.piece]||'?');
+      const bar = Math.round((p.legal_moves / Math.max(...d.mrv_order.map(x=>x.legal_moves), 1)) * 60);
+      return `
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 6px;background:${i===0?'rgba(167,139,250,.1)':'transparent'};border-radius:4px;">
+          <span style="font-size:.8rem;width:18px;text-align:center;">${sym}</span>
+          <span style="font-family:Courier New,monospace;font-size:.65rem;color:var(--accent-l);width:22px;">${p.square.toUpperCase()}</span>
+          <div style="flex:1;background:var(--bg);border-radius:2px;height:5px;overflow:hidden;">
+            <div style="width:${bar}px;height:100%;background:${i===0?'#a78bfa':'#3b82f6'};border-radius:2px;"></div>
+          </div>
+          <span style="font-family:var(--ff-d);font-size:.7rem;font-weight:700;color:var(--t1);width:18px;text-align:right;">${p.legal_moves}</span>
+        </div>`;
+    }).join('');
+
+    res.style.display = 'block';
+  } catch(e) {
+    alert('Network error: ' + e);
+  } finally {
+    load.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BOOTSTRAP
+// ═══════════════════════════════════════════════════════════════════
+initBoard();
+buildBoardUI();
+
+// Populate A* square selectors
+(function populateSquareSelects() {
+  const files = 'abcdefgh';
+  const squares = [];
+  for (let rank = 8; rank >= 1; rank--)
+    for (let f of files) squares.push(f + rank);
+  ['pathFrom','pathTo'].forEach(id => {
+    const sel = document.getElementById(id);
+    squares.forEach(sq => {
+      const o = document.createElement('option');
+      o.value = sq; o.textContent = sq.toUpperCase();
+      sel.appendChild(o);
+    });
+  });
+  // Set sensible defaults: knight a1 → h8
+  document.getElementById('pathFrom').value = 'a1';
+  document.getElementById('pathTo').value   = 'h8';
+})();
+</script>
+{% endblock %}

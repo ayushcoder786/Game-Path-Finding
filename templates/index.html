@@ -10,6 +10,7 @@
       <span class="logo-icon">♟</span>
       <span class="logo-text">CHESS AI ENGINE</span>
     </div>
+    <a href="/chess" style="font-family:var(--ff-u);font-size:.78rem;letter-spacing:.1em;color:#a78bfa;text-decoration:none;border:1px solid rgba(167,139,250,.3);padding:6px 16px;border-radius:4px;transition:all .2s" onmouseover="this.style.background='rgba(167,139,250,.12)'" onmouseout="this.style.background=''">♟ LIVE CHESS GAME</a>
     <div class="nav-badge">KL University · AI Lab</div>
   </nav>
 
@@ -38,6 +39,7 @@
     <p class="hero-desc">
       An AI chess piece navigates a grid from start to goal using <strong>11 algorithms</strong> —
       from classic search to adversarial game trees. Watch your piece move, not the scan.
+      Now featuring a <strong>full live chess game</strong> with Human vs Human, Human vs AI, and AI vs AI modes.
     </p>
 
     <div class="algo-pills">
@@ -60,10 +62,10 @@
     </a>
 
     <div class="feature-grid">
-      <div class="feat-card">
-        <div class="feat-icon">♟</div>
-        <div class="feat-title">Chess Pieces</div>
-        <div class="feat-desc">King, Queen, Rook, Bishop, Knight, Pawn — each with authentic movement rules</div>
+      <div class="feat-card" onclick="location.href='/chess'" style="cursor:pointer">
+        <div class="feat-icon">♞</div>
+        <div class="feat-title">Live Chess Game</div>
+        <div class="feat-desc">Human vs Human, Human vs AI, AI vs AI — full chess rules with end-game overlay</div>
       </div>
       <div class="feat-card">
         <div class="feat-icon">🔍</div>
@@ -78,7 +80,7 @@
       <div class="feat-card">
         <div class="feat-icon">⚔️</div>
         <div class="feat-title">Adversarial AI</div>
-        <div class="feat-desc">2-Player & 3-Player Minimax with Alpha-Beta pruning</div>
+        <div class="feat-desc">2-Player &amp; 3-Player Minimax with Alpha-Beta pruning</div>
       </div>
     </div>
   </div>
